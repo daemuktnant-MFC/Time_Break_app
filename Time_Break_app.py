@@ -282,7 +282,7 @@ with header_col2:
         st.write("เลือกกิจกรรม:")
         activity_buttons_col1, activity_buttons_col2, activity_buttons_col3, activity_buttons_col4 = st.columns(4)
 
-        submitted_work = activity_buttons_col1.form_submit_button("เริ่มงาน", type="primary", use_container_width=True)
+        submitted_work = activity_buttons_col1.form_submit_button("เริ่มกิจกรรม", type="primary", use_container_width=True)
         submitted_smoking = activity_buttons_col2.form_submit_button("สูบบุหรี่", use_container_width=True)
         submitted_toilet = activity_buttons_col3.form_submit_button("เข้าห้องน้ำ", use_container_width=True)
         submitted_end_activity = activity_buttons_col4.form_submit_button("สิ้นสุดกิจกรรม", type="secondary", use_container_width=True) # ปุ่ม Clock Out หลัก
@@ -303,7 +303,7 @@ with header_col2:
             # ปุ่มเริ่มกิจกรรม
             if submitted_work:
                 activity_to_log = "Work"
-                success_message = f"✅ เริ่มงาน สำหรับ ID: **{emp_id_input}** เวลา {current_time_str} เรียบร้อย!"
+                success_message = f"✅ เริ่มกิจกรรม สำหรับ ID: **{emp_id_input}** เวลา {current_time_str} เรียบร้อย!"
             elif submitted_smoking:
                 activity_to_log = "Smoking"
                 success_message = f"🚭 เริ่มสูบบุหรี่ สำหรับ ID: **{emp_id_input}** เวลา {current_time_str} เรียบร้อย!"
