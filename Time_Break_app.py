@@ -302,7 +302,7 @@ with header_col2:
 
             # ปุ่มเริ่มกิจกรรม
             if submitted_work:
-                activity_to_log = "Work"
+                activity_to_log = "Break"
                 success_message = f"✅ เริ่มกิจกรรม สำหรับ ID: **{emp_id_input}** เวลา {current_time_str} เรียบร้อย!"
             elif submitted_smoking:
                 activity_to_log = "Smoking"
