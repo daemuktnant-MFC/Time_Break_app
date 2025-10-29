@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime, date, time # เพิ่ม time
+from datetime import datetime, date, time, timezone, timedelta # เพิ่ม time
 import os
 import numpy as np
 import math
@@ -277,19 +277,35 @@ with header_col2:
 
         # Input ID ยังคงจำเป็น
         emp_id_input = st.text_input("Employee ID (Scan/Key In)", key="emp_id_input_key")
-
+        
+        
+        # ใส่ JS เพื่อ focus ช่องกรอก ID
+        st.markdown("""
+            <script>
+                const input = window.parent.document.querySelector('input[data-testid="stTextInput"][aria-label="Employee ID (Scan/Key In)"]');
+                if (input) {
+                    input.focus();
+                    }
+        </script>
+        """, unsafe_allow_html=True)
+            
         # 💥 NEW: แถวปุ่มกิจกรรม
         st.write("เลือกกิจกรรม:")
         activity_buttons_col1, activity_buttons_col2, activity_buttons_col3, activity_buttons_col4 = st.columns(4)
 
-        submitted_work = activity_buttons_col1.form_submit_button("พักเบรค", type="primary", use_container_width=True)
+        submitted_work = activity_buttons_col1.form_submit_button("เริ่มกิจกรรม", type="primary", use_container_width=True)
         submitted_smoking = activity_buttons_col2.form_submit_button("สูบบุหรี่", use_container_width=True)
         submitted_toilet = activity_buttons_col3.form_submit_button("เข้าห้องน้ำ", use_container_width=True)
         submitted_end_activity = activity_buttons_col4.form_submit_button("สิ้นสุดกิจกรรม", type="secondary", use_container_width=True) # ปุ่ม Clock Out หลัก
 
+        # 💥 หลังแก้ไข: กำหนด Time Zone เป็น UTC+7 (เวลาประเทศไทย)
+        THAILAND_TZ = timezone(timedelta(hours=7)) # กำหนด Time Zone Thailand (ICT/UTC+7)       
+
+        now_thailand = datetime.now(THAILAND_TZ) # ดึงเวลาปัจจุบันใน Time Zone Thailand
+
         # วันที่และเวลาปัจจุบัน (ใช้เมื่อกดปุ่ม)
-        current_date_str = datetime.now().date().strftime('%Y-%m-%d')
-        current_time_str = datetime.now().time().strftime('%H:%M:%S')
+        current_date_str = now_thailand.date().strftime('%Y-%m-%d')
+        current_time_str = now_thailand.time().strftime('%H:%M:%S')
 
         # --- Logic การกดปุ่ม ---
         if submitted_work or submitted_smoking or submitted_toilet or submitted_end_activity:
@@ -341,7 +357,7 @@ col_filter1, col_filter2, col_filter3 = st.columns(3)
 
 filter_date_from = col_filter1.date_input(
     "กรองตามวันที่ (From)",
-    value=datetime.now().date() - pd.Timedelta(days=30),
+    value=datetime.now().date(),
     key="date_from_key"
 )
 
