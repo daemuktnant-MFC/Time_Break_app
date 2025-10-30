@@ -218,18 +218,13 @@ def main():
     # --- 3. ส่วนหน้าเว็บ (UI) ---
     st.set_page_config(page_title="Time Logger", layout="wide")
 
-    # Initialize Session State for ID
+    # (ส่วน Session State... เหมือนเดิม)
     if "current_emp_id" not in st.session_state:
         st.session_state["current_emp_id"] = ""
-    
-    # Key ของ text_input
     if "manual_emp_id_input" not in st.session_state:
         st.session_state["manual_emp_id_input"] = ""
-        
-    # 💥 FIX: Key สำหรับเก็บ Message ที่จะแสดงผล
     if "last_message" not in st.session_state:
         st.session_state.last_message = None
-
 
     # --- 3.1 การเริ่มต้นไฟล์ข้อมูล ---
     initialize_data_file()
@@ -237,9 +232,8 @@ def main():
     # --- 3.2 โหลดข้อมูล ---
     df = load_data() 
 
-    # -----------------------------------------------------------------
-    # 💥💥💥 FIX: 1. สร้าง Callback Function 💥💥💥
-    # -----------------------------------------------------------------
+    # --- 3.3 Callback Function ---
+    # (ฟังก์ชัน submit_activity(...) เหมือนเดิมทุกประการ)
     def submit_activity(activity_type):
         """
         Callback ที่จะทำงานเมื่อกดปุ่ม
@@ -294,9 +288,7 @@ def main():
         st.title("ระบบบันทึกเวลากิจกรรม")
         st.markdown(f"**บันทึกข้อมูลที่:** `{LOGS_DIR}`")
 
-        # -----------------------------------------------------------------
-        # 💥💥💥 FIX: 2. แสดง Message จาก Callback 💥💥💥
-        # -----------------------------------------------------------------
+        # (ส่วนแสดง Message... เหมือนเดิม)
         if st.session_state.last_message:
             msg_type, msg_content = st.session_state.last_message
             if msg_type == "success":
@@ -305,28 +297,35 @@ def main():
                 st.warning(msg_content)
             elif msg_type == "error":
                 st.error(msg_content)
-            st.session_state.last_message = None # เคลียร์ Message หลังจากแสดงผล
+            st.session_state.last_message = None 
 
         # --- ส่วน Input ID (Manual/QR) ---
         
-        # 1. Manual Input
+        # 1. Manual Input (เหมือนเดิม)
         manual_input = st.text_input(
             "กรอก ID ด้วยมือ (ถ้าสแกนไม่ได้):", 
-            key="manual_emp_id_input", # ควบคุมด้วย key นี้
+            key="manual_emp_id_input", 
             placeholder="กรอก ID ที่นี่"
         )
         
-        # 2. QR Scanner
-        scanned_id = None
-        with st.expander("หรือ สแกน QR/Barcode (คลิกเพื่อเปิดกล้อง)"):
-            scanned_id = qrcode_scanner(key="qrcode_scanner_key_new")
+        # ---------------------------------------------------------
+        # 💥💥💥 FIX: ย้าย Scanner ออกจาก Expander 💥💥💥
+        # ---------------------------------------------------------
         
-        # --- Logic การ Sync ID ---
-        # (ส่วนนี้สำคัญมาก ต้องทำงานทุกครั้งที่ Rerun)
+        # 2. QR Scanner (ลบ st.expander ออก)
+        st.markdown("หรือ สแกน QR/Barcode:") # เพิ่มข้อความกำกับ
+        scanned_id = qrcode_scanner(key="qrcode_scanner_key_new")
+        
+        # (ลบ 'with st.expander(...):' ทิ้งไป)
+        
+        # ---------------------------------------------------------
+
+        
+        # --- Logic การ Sync ID --- (เหมือนเดิม)
         if scanned_id:
             st.session_state["manual_emp_id_input"] = scanned_id 
             st.session_state["current_emp_id"] = scanned_id 
-            st.rerun() # Rerun ทันทีเพื่อให้กล่อง text_input อัปเดต
+            st.rerun() 
         
         elif manual_input != st.session_state.get("current_emp_id", ""):
              st.session_state["current_emp_id"] = manual_input
@@ -336,11 +335,7 @@ def main():
         
         emp_id_input = st.session_state.get("current_emp_id", "")
             
-        # -----------------------------------------------------------------
-        # 💥💥💥 FIX: 3. เปลี่ยนจาก Form เป็น st.button + on_click 💥💥💥
-        # -----------------------------------------------------------------
-        
-        # (ลบ st.form)
+        # --- ส่วนปุ่ม Button + on_click --- (เหมือนเดิม)
         if emp_id_input:
             st.info(f"ID ที่ใช้บันทึก: **{emp_id_input}**")
         else:
@@ -368,10 +363,7 @@ def main():
             st.button("สิ้นสุดกิจกรรม", type="secondary", use_container_width=True, disabled=is_disabled,
                         on_click=submit_activity, args=("End_Activity",))
 
-        # 💥💥💥 FIX: 4. ลบ Logic ที่อยู่ใน Form เก่าทิ้ง 💥💥💥
-        # (if submitted_Break... ทั้งหมดถูกย้ายไปใน callback `submit_activity` แล้ว)
-
-        # 4. ส่วนสร้างปุ่มดาวน์โหลดไฟล์ (เหมือนเดิม)
+        # (ส่วน Download... เหมือนเดิม)
         st.subheader("ดาวน์โหลดข้อมูล")
         csv_data = get_csv_content_with_bom(DATA_FILE)
         if csv_data:
@@ -389,23 +381,13 @@ def main():
     # ส่วนคอลัมน์ขวา (เหมือนเดิมทุกประการ)
     # -----------------------------------------------------------------
     with main_col2:
+        # (โค้ดทั้งหมดใน main_col2 เหมือนเดิม)
         st.subheader("ข้อมูลลงเวลา")
 
         # --- ส่วน Filter ---
         col_filter1, col_filter2, col_filter3 = st.columns(3)
-
-        filter_date_from = col_filter1.date_input(
-            "กรองตามวันที่ (From)",
-            value=datetime.now().date(),
-            key="date_from_key"
-        )
-
-        filter_date_to = col_filter2.date_input(
-            "กรองตามวันที่ (To)",
-            value=datetime.now().date(),
-            key="date_to_key"
-        )
-
+        filter_date_from = col_filter1.date_input("กรองตามวันที่ (From)", value=datetime.now().date(), key="date_from_key")
+        filter_date_to = col_filter2.date_input("กรองตามวันที่ (To)", value=datetime.now().date(), key="date_to_key")
         unique_ids = ["All"]
         if not df.empty and 'Employee_ID' in df.columns:
             unique_ids += sorted(df['Employee_ID'].dropna().unique())
@@ -417,7 +399,6 @@ def main():
         else:
             display_df = df.copy()
             display_df['Original_Index'] = display_df.index 
-
             display_df['Date_Obj'] = pd.to_datetime(display_df['Date']).dt.date
 
             if filter_date_from and filter_date_to:
@@ -440,7 +421,6 @@ def main():
                 display_df = display_df.sort_values(by=['Date', 'Start_Time'], ascending=[False, False])
                 display_df = display_df.reset_index(drop=True) 
 
-                # --- ส่วนหัวตาราง ---
                 col_ratios = [0.5, 1, 1, 1.2, 1, 1, 1.3]
                 cols = st.columns(col_ratios)
                 headers = ["ลบ", "Employee ID", "Date", "ประเภทกิจกรรม", "เวลาเริ่ม", "เวลาสิ้นสุด", "**ระยะเวลา**"]
@@ -449,21 +429,12 @@ def main():
                 
                 st.markdown("---") 
 
-                # --- วนลูปแสดงข้อมูล ---
                 for index, row in display_df.iterrows(): 
                     original_index = row['Original_Index']
                     cols = st.columns(col_ratios)
                     time_style = "class='time-display'"
-
-                    if cols[0].button(
-                        "❌",
-                        key=f"del_{original_index}_{index}", 
-                        on_click=delete_log_entry,
-                        args=(original_index,), 
-                        help="ลบ Log ลงเวลานี้"
-                    ):
+                    if cols[0].button("❌", key=f"del_{original_index}_{index}", on_click=delete_log_entry, args=(original_index,), help="ลบ Log ลงเวลานี้"):
                          st.rerun()
-
                     cols[1].write(row['Employee_ID'])
                     cols[2].write(row['Date'])
                     cols[3].write(row['Activity_Type'])
