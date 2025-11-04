@@ -43,7 +43,7 @@ div.stButton button[data-testid="baseButton-secondary"] { color: #00FFFF !import
 @st.cache_resource
 def get_gsheets_connection():
     try:
-        return st.connection("gsheets", type=GSheetsConnection)
+        return st.connection("gsheets") # ✅ แก้ให้เป็นแบบนี้ (ง่ายกว่าเดิม)
     except Exception as e:
         st.error(f"เกิดข้อผิดพลาดในการเชื่อมต่อ Google Sheets: {e}")
         st.error("กรุณาตรวจสอบว่าตั้งค่า [gsheets] ใน st.secrets ถูกต้อง (ขั้นตอนที่ 4)")
