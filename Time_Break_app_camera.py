@@ -146,7 +146,7 @@ def save_unique_user_id(employee_id):
     
     if employee_id not in existing_ids:
         existing_ids.append(employee_id)
-        df_new = pd.DataFrame({'Employee_ID': sorted(existing_ids)}) # 💥 FIX: เรียงลำดับก่อนบันทึก
+        df_new = pd.DataFrame({'Employee_ID': existing_ids})
         
         try:
             df_new.to_csv(USER_DATA_FILE, index=False)
@@ -199,9 +199,9 @@ def clock_out_latest_activity(employee_id, date_str, end_time_str):
         return True 
     return False 
 
-# 💥 NEW: ฟังก์ชันเริ่มกิจกรรมใหม่ (รวม Clock Out อันเก่า)
+# 💥 NEW: ฟังก์ชันเริ่มพักเบรคใหม่ (รวม Clock Out อันเก่า)
 def log_activity_start(employee_id, date_str, start_time_str, activity_type):
-    """บันทึกการเริ่มกิจกรรมใหม่ และ Clock Out กิจกรรมเดิม (ถ้ามี)"""
+    """บันทึกการเริ่มพักเบรคใหม่ และ Clock Out กิจกรรมเดิม (ถ้ามี)"""
     try:
         clock_out_latest_activity(employee_id, date_str, start_time_str) 
         df = load_data()
@@ -222,7 +222,7 @@ def log_activity_start(employee_id, date_str, start_time_str, activity_type):
         
         return True
     except Exception as e:
-        st.error(f"เกิดข้อผิดพลาดในการเริ่มกิจกรรม {activity_type}: {e}")
+        st.error(f"เกิดข้อผิดพลาดในการเริ่มพักเบรค {activity_type}: {e}")
         return False
 
 
@@ -303,16 +303,15 @@ def submit_activity(activity_type):
             # 4. ตั้งค่า Message และล้างค่า
             st.session_state.last_message = ("success", f"✅ สิ้นสุดกิจกรรมล่าสุด สำหรับ ID: **{emp_id}** เวลา {current_time_str} เรียบร้อยแล้ว!")
             st.session_state["current_emp_id"] = "" 
-            # 💥 FIX: ล้างค่า SelectBox (ถ้า Key ตรงกัน) หรือปล่อยให้ Rerun จัดการ
-            # st.session_state["selectbox_emp_id"] = "" # (Optional)
+            st.session_state["manual_emp_id_input_outside_form"] = "" 
         else:
             st.session_state.last_message = ("warning", f"⚠️ ไม่พบกิจกรรมที่กำลังดำเนินอยู่สำหรับ ID: **{emp_id}** วันที่ {current_date_str}")
             
     else:
-        # (activity_type คือ "Work", "Smoking", "Toilet")
+        # (activity_type คือ "Break", "Smoking", "Toilet")
         if log_activity_start(emp_id, current_date_str, current_time_str, activity_type):
-            success_message = f"✅ เริ่มกิจกรรม **{activity_type}** สำหรับ ID: **{emp_id}** เวลา {current_time_str} เรียบร้อยแล้ว!"
-            if activity_type == "Work":
+            success_message = f"✅ เริ่มพักเบรค **{activity_type}** สำหรับ ID: **{emp_id}** เวลา {current_time_str} เรียบร้อยแล้ว!"
+            if activity_type == "Break":
                 success_message = f"▶️ เริ่มงาน สำหรับ ID: **{emp_id}** เวลา {current_time_str} เรียบร้อยแล้ว!"
             elif activity_type == "Smoking":
                 success_message = f"🚭 เริ่มสูบบุหรี่ สำหรับ ID: **{emp_id}** เวลา {current_time_str} เรียบร้อยแล้ว!"
@@ -322,8 +321,9 @@ def submit_activity(activity_type):
             # 4. ตั้งค่า Message และล้างค่า
             st.session_state.last_message = ("success", success_message)
             st.session_state["current_emp_id"] = "" 
+            st.session_state["manual_emp_id_input_outside_form"] = "" 
         else:
-            st.session_state.last_message = ("error", f"เกิดข้อผิดพลาดในการเริ่มกิจกรรม {activity_type}")
+            st.session_state.last_message = ("error", f"เกิดข้อผิดพลาดในการเริ่มพักเบรค {activity_type}")
             
     st.rerun() 
 
@@ -341,7 +341,8 @@ def main():
     # Initialize Session State
     if "current_emp_id" not in st.session_state:
         st.session_state["current_emp_id"] = ""
-    # 💥 ลบ Key เก่า "manual_emp_id_input_outside_form" ออก
+    if "manual_emp_id_input_outside_form" not in st.session_state: 
+        st.session_state["manual_emp_id_input_outside_form"] = ""
     if "last_message" not in st.session_state:
         st.session_state.last_message = None
 
@@ -357,7 +358,7 @@ def main():
     main_col1, main_col2 = st.columns([1, 2])
 
     with main_col1:
-        st.title("ระบบบันทึกเวลากิจกรรม")
+        st.title("ระบบบันทึกเวลา")
         st.markdown(f"**บันทึกข้อมูลที่:** `{LOGS_DIR}`")
         
         # -----------------------------------------------------------------
@@ -374,44 +375,26 @@ def main():
             st.session_state.last_message = None 
         
         # -----------------------------------------------------------------
-        st.subheader("บันทึกกิจกรรม")
+        #st.subheader("บันทึกกิจกรรม")
 
-        # 💥 1. โหลดข้อมูล User ID สำหรับ Dropdown
-        user_id_list = [""] + sorted(load_user_data()) # "" (ว่าง) คือค่าเริ่มต้น
-
-        # 💥 2. ดึงค่า ID ปัจจุบัน (อาจจะมาจากการสแกนใน Rerun ก่อนหน้า)
-        current_id_in_state = st.session_state.get("current_emp_id", "")
+        # 1. กล่องกรอก ID ด้วยมือ (Manual Input)
+        manual_input_value = st.session_state["manual_emp_id_input_outside_form"]
         
-        # 💥 3. หา Index ของ ID ปัจจุบันใน List
-        try:
-            default_index = user_id_list.index(current_id_in_state)
-        except ValueError:
-            # ถ้า ID (จากการสแกน) ไม่อยู่ใน List (User ใหม่)
-            # เราจะเพิ่ม ID ที่สแกนมาใน List ชั่วคราวเพื่อให้ SelectBox แสดงผล
-            if current_id_in_state:
-                user_id_list.append(current_id_in_state)
-                default_index = len(user_id_list) - 1 # เลือกอันสุดท้าย (ที่เพิ่งเพิ่ม)
-            else:
-                default_index = 0 # (ว่าง)
-
-        # 💥 4. สร้าง SelectBox (Dropdown) แทน st.text_input
-        selected_id = st.selectbox(
-            "เลือก ID พนักงาน (หรือสแกน QR Code ด้านล่าง):", # เปลี่ยน Label
-            options=user_id_list,
-            index=default_index,
-            key="selectbox_emp_id" # Key ใหม่
+        manual_input = st.text_input(
+            "กรอก ID ด้วยมือ:", 
+            value=manual_input_value,
+            key="manual_emp_id_input_outside_form", 
+            placeholder="กรอก ID ที่นี่"
         )
 
-        # 💥 5. Sync Logic (SelectBox)
-        # ถ้า User *เลือก* จาก Dropdown
-        if selected_id != st.session_state.current_emp_id:
-            st.session_state["current_emp_id"] = selected_id
-            st.rerun() # Rerun เพื่อให้ st.info อัปเดต
-            
+        # Logic: ถ้ามีการกรอก Manual Input ให้ค่านี้แทนที่ใน session_state 
+        if manual_input != st.session_state.current_emp_id:
+            st.session_state["current_emp_id"] = manual_input
+        
         emp_id_input = st.session_state.current_emp_id
             
         # -----------------------------------------------------------------
-        # 6. ส่วน Form สำหรับปุ่มกิจกรรม
+        # 💥 FIX: 2. ส่วน Form/ปุ่มกิจกรรม (ย้ายมาไว้ข้างล่าง Manual Input)
         # -----------------------------------------------------------------
         
         with st.form("activity_form", clear_on_submit=False): 
@@ -419,7 +402,7 @@ def main():
             if emp_id_input:
                 st.info(f"ID ที่ใช้บันทึก: **{emp_id_input}**")
             else:
-                st.info("กรุณาสแกนหรือเลือก ID พนักงานก่อนทำกิจกรรม")
+                st.info("กรุณาสแกนหรือกรอก Employee ID ก่อนทำกิจกรรม")
 
             st.write("เลือกกิจกรรม:")
             
@@ -428,8 +411,8 @@ def main():
             is_disabled = not bool(emp_id_input) 
             
             # ปุ่มกิจกรรม (ใช้ on_click)
-            submitted_work = activity_buttons_col1.form_submit_button("เริ่มกิจกรรม", type="primary", use_container_width=True, disabled=is_disabled,
-                                                                    on_click=submit_activity, args=("Work",))
+            submitted_Break = activity_buttons_col1.form_submit_button("เริ่มพักเบรค", type="primary", use_container_width=True, disabled=is_disabled,
+                                                                    on_click=submit_activity, args=("Break",))
             submitted_smoking = activity_buttons_col2.form_submit_button("สูบบุหรี่", use_container_width=True, disabled=is_disabled,
                                                                        on_click=submit_activity, args=("Smoking",))
             submitted_toilet = activity_buttons_col3.form_submit_button("เข้าห้องน้ำ", use_container_width=True, disabled=is_disabled,
@@ -438,17 +421,20 @@ def main():
                                                                            on_click=submit_activity, args=("End_Activity",))
 
         # -----------------------------------------------------------------
-        # 7. กล้องสแกน QR Code (อยู่ด้านล่างสุด)
+        # 💥 FIX: 3. กล้องสแกน QR Code (ย้ายไปอยู่ด้านล่างสุด)
         # -----------------------------------------------------------------
         st.write("---") # เส้นคั่นก่อนส่วนสแกน
         st.write("หรือ สแกน QR/Barcode:")
         
+        # 3. QR Code Scanner: Component ที่เปิดกล้อง
         scanned_id = qrcode_scanner(key="qrcode_scanner_key_new")
         
         # Logic: ถ้าสแกนได้ ให้บันทึกค่าลง session_state ทันที
+        # เนื่องจาก logic นี้ถูกย้ายมาอยู่ด้านล่างสุดแล้ว มันจะทำงานหลังจาก form ถูกประมวลผล
         if scanned_id and scanned_id != st.session_state.current_emp_id:
             st.session_state["current_emp_id"] = scanned_id
-            st.rerun() # Rerun เพื่อให้ SelectBox อัปเดต
+            st.session_state["manual_emp_id_input_outside_form"] = scanned_id # Sync ให้ input แสดงค่า
+            st.rerun()
 
 
     # -----------------------------------------------------------------
@@ -464,7 +450,6 @@ def main():
         filter_date_from = col_filter1.date_input("กรองตามวันที่ (From)", value=datetime.now().date(), key="date_from_key")
         filter_date_to = col_filter2.date_input("กรองตามวันที่ (To)", value=datetime.now().date(), key="date_to_key")
 
-        # 💥 FIX: ใช้ load_user_data() เพื่อดึงรายการ ID สำหรับ SelectBox
         unique_ids = ["All"] + sorted(load_user_data())
         filter_id = col_filter3.selectbox("กรองตาม Employee ID", options=unique_ids, key="id_filter_key")
 
@@ -535,16 +520,6 @@ def main():
                 mime="text/csv",
                 key="download_button_key"
             )
-
-        # (Optional) ส่วนแสดงข้อมูลดิบ
-        with st.expander(f"ดูข้อมูลดิบ (Raw Data from: {DATA_FILE})"):
-            try:
-                raw_df_display = pd.read_csv(DATA_FILE)
-                st.dataframe(raw_df_display)
-            except FileNotFoundError:
-                st.warning("ยังไม่มีไฟล์ข้อมูล")
-            except Exception as e:
-                st.error(f"ไม่สามารถโหลดข้อมูลดิบได้: {e}")
 
 # -----------------------------------------------------------------
 # 💥 การเรียกใช้งานฟังก์ชันหลัก
