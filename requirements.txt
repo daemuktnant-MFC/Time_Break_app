@@ -4,3 +4,4 @@ numpy
 streamlit-qrcode-scanner
 sqlalchemy
 psycopg2-binary
+streamlit-gsheets-connection
