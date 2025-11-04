@@ -6,8 +6,6 @@ import numpy as np
 import math
 import pathlib
 from streamlit_qrcode_scanner import qrcode_scanner
-# 💥 [GSHEETS] import GSheetsConnection
-from streamlit_gsheets.connection import GSheetsConnection
 
 # -----------------------------------------------------------------
 # 💥 [GSHEETS] ลบการอ้างอิงไฟล์ CSV ทั้งหมด
