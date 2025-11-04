@@ -113,7 +113,7 @@ def load_user_data():
         return []
 
 def save_unique_user_id(employee_id):
-    """บันทึก ID พนักงานใหม่ที่ไม่ซ้ำ (SQL)"""
+    """บันทึก ID พนักงานใหม่ที่ไม่ซ้ำ"""
     employee_id = str(employee_id)
     if not employee_id:
         return
