@@ -2,4 +2,4 @@ streamlit
 pandas
 numpy
 streamlit-qrcode-scanner
-streamlit_gsheets_connection
+streamlit-gsheets
