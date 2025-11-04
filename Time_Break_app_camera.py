@@ -6,7 +6,6 @@ import numpy as np
 import math
 import pathlib
 from streamlit_qrcode_scanner import qrcode_scanner
-from st_gsheets_connection import GSheetsConnection
 
 # -----------------------------------------------------------------
 # 💥 [GSHEETS] ลบการอ้างอิงไฟล์ CSV ทั้งหมด
@@ -42,7 +41,7 @@ div.stButton button[data-testid="baseButton-secondary"] { color: #00FFFF !import
 @st.cache_resource
 def get_gsheets_connection():
     try:
-        return st.connection("gsheets", type=GSheetsConnection) # ✅ ต้องมี type=GSheetsConnection
+        return st.connection("gsheets")
     except Exception as e:
         st.error(f"เกิดข้อผิดพลาดในการเชื่อมต่อ Google Sheets: {e}")
         st.error("กรุณาตรวจสอบว่าตั้งค่า [gsheets] ใน st.secrets ถูกต้อง (ขั้นตอนที่ 4)")
