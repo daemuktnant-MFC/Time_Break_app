@@ -346,7 +346,7 @@ def submit_activity(activity_type):
         else:
             st.session_state.last_message = ("error", f"เกิดข้อผิดพลาดในการเริ่มพักเบรค {activity_type}")
             
-    st.rerun() 
+    #st.rerun() 
 
 
 # -----------------------------------------------------------------
@@ -394,7 +394,7 @@ def main():
     main_col1, main_col2 = st.columns([1, 2])
 
     with main_col1:
-        st.title("ระบบบันทึกเวลากิจกรรม")
+        st.title("ระบบบันทึกเวลา")
         
         if st.session_state.last_message:
             msg_type, msg_content = st.session_state.last_message
@@ -403,7 +403,7 @@ def main():
             elif msg_type == "error": st.error(msg_content)
             st.session_state.last_message = None 
         
-        st.subheader("บันทึกกิจกรรม")
+        #st.subheader("บันทึกกิจกรรม")
 
         # 1. โหลดข้อมูล User ID สำหรับ Dropdown
         user_id_list = [""] + sorted(load_user_data()) # "" (ว่าง) คือค่าเริ่มต้น
