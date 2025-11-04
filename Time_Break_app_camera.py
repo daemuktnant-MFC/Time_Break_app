@@ -304,7 +304,7 @@ def submit_activity(activity_type):
             st.session_state.last_message = ("success", f"✅ สิ้นสุดกิจกรรมล่าสุด สำหรับ ID: **{emp_id}** เวลา {current_time_str} เรียบร้อยแล้ว!")
             st.session_state["current_emp_id"] = "" 
             st.session_state["manual_emp_id_input_outside_form"] = "" 
-            st.session_state["selectbox_chooser"] = "--- เลือก ID (ถ้ามี) ---" # 💥 [NEW] Reset selectbox
+            st.session_state["selectbox_chooser"] = "เลือก ID" # 💥 [NEW] Reset selectbox
         else:
             st.session_state.last_message = ("warning", f"⚠️ ไม่พบกิจกรรมที่กำลังดำเนินอยู่สำหรับ ID: **{emp_id}** วันที่ {current_date_str}")
             
