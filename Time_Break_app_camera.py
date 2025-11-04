@@ -199,9 +199,9 @@ def clock_out_latest_activity(employee_id, date_str, end_time_str):
         return True 
     return False 
 
-# 💥 NEW: ฟังก์ชันเริ่มกิจกรรมใหม่ (รวม Clock Out อันเก่า)
+# 💥 NEW: ฟังก์ชันเริ่มพักเบรคใหม่ (รวม Clock Out อันเก่า)
 def log_activity_start(employee_id, date_str, start_time_str, activity_type):
-    """บันทึกการเริ่มกิจกรรมใหม่ และ Clock Out กิจกรรมเดิม (ถ้ามี)"""
+    """บันทึกการเริ่มพักเบรคใหม่ และ Clock Out กิจกรรมเดิม (ถ้ามี)"""
     try:
         clock_out_latest_activity(employee_id, date_str, start_time_str) 
         df = load_data()
@@ -222,7 +222,7 @@ def log_activity_start(employee_id, date_str, start_time_str, activity_type):
         
         return True
     except Exception as e:
-        st.error(f"เกิดข้อผิดพลาดในการเริ่มกิจกรรม {activity_type}: {e}")
+        st.error(f"เกิดข้อผิดพลาดในการเริ่มพักเบรค {activity_type}: {e}")
         return False
 
 
@@ -311,7 +311,7 @@ def submit_activity(activity_type):
     else:
         # (activity_type คือ "Break", "Smoking", "Toilet")
         if log_activity_start(emp_id, current_date_str, current_time_str, activity_type):
-            success_message = f"✅ เริ่มกิจกรรม **{activity_type}** สำหรับ ID: **{emp_id}** เวลา {current_time_str} เรียบร้อยแล้ว!"
+            success_message = f"✅ เริ่มพักเบรค **{activity_type}** สำหรับ ID: **{emp_id}** เวลา {current_time_str} เรียบร้อยแล้ว!"
             if activity_type == "Break":
                 success_message = f"▶️ เริ่มพักเบรค สำหรับ ID: **{emp_id}** เวลา {current_time_str} เรียบร้อยแล้ว!"
             elif activity_type == "Smoking":
@@ -323,7 +323,7 @@ def submit_activity(activity_type):
             st.session_state.last_message = ("success", success_message)
             st.session_state["current_emp_id"] = "" 
         else:
-            st.session_state.last_message = ("error", f"เกิดข้อผิดพลาดในการเริ่มกิจกรรม {activity_type}")
+            st.session_state.last_message = ("error", f"เกิดข้อผิดพลาดในการเริ่มพักเบรค {activity_type}")
             
     st.rerun() 
 
@@ -428,7 +428,7 @@ def main():
             is_disabled = not bool(emp_id_input) 
             
             # ปุ่มกิจกรรม (ใช้ on_click)
-            submitted_Break = activity_buttons_col1.form_submit_button("เริ่มกิจกรรม", type="primary", use_container_width=True, disabled=is_disabled,
+            submitted_Break = activity_buttons_col1.form_submit_button("เริ่มพักเบรค", type="primary", use_container_width=True, disabled=is_disabled,
                                                                     on_click=submit_activity, args=("Break",))
             submitted_smoking = activity_buttons_col2.form_submit_button("สูบบุหรี่", use_container_width=True, disabled=is_disabled,
                                                                        on_click=submit_activity, args=("Smoking",))
