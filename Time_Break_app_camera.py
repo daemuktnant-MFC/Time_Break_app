@@ -199,9 +199,9 @@ def clock_out_latest_activity(employee_id, date_str, end_time_str):
         return True 
     return False 
 
-# 💥 NEW: ฟังก์ชันเริ่มกิจกรรมใหม่ (รวม Clock Out อันเก่า)
+# 💥 NEW: ฟังก์ชันเริ่มพักเบรคใหม่ (รวม Clock Out อันเก่า)
 def log_activity_start(employee_id, date_str, start_time_str, activity_type):
-    """บันทึกการเริ่มกิจกรรมใหม่ และ Clock Out กิจกรรมเดิม (ถ้ามี)"""
+    """บันทึกการเริ่มพักเบรคใหม่ และ Clock Out กิจกรรมเดิม (ถ้ามี)"""
     try:
         clock_out_latest_activity(employee_id, date_str, start_time_str) 
         df = load_data()
@@ -222,7 +222,7 @@ def log_activity_start(employee_id, date_str, start_time_str, activity_type):
         
         return True
     except Exception as e:
-        st.error(f"เกิดข้อผิดพลาดในการเริ่มกิจกรรม {activity_type}: {e}")
+        st.error(f"เกิดข้อผิดพลาดในการเริ่มพักเบรค {activity_type}: {e}")
         return False
 
 
@@ -309,10 +309,10 @@ def submit_activity(activity_type):
             st.session_state.last_message = ("warning", f"⚠️ ไม่พบกิจกรรมที่กำลังดำเนินอยู่สำหรับ ID: **{emp_id}** วันที่ {current_date_str}")
             
     else:
-        # (activity_type คือ "Work", "Smoking", "Toilet")
+        # (activity_type คือ "Break", "Smoking", "Toilet")
         if log_activity_start(emp_id, current_date_str, current_time_str, activity_type):
-            success_message = f"✅ เริ่มกิจกรรม **{activity_type}** สำหรับ ID: **{emp_id}** เวลา {current_time_str} เรียบร้อยแล้ว!"
-            if activity_type == "Work":
+            success_message = f"✅ เริ่มพักเบรค **{activity_type}** สำหรับ ID: **{emp_id}** เวลา {current_time_str} เรียบร้อยแล้ว!"
+            if activity_type == "Break":
                 success_message = f"▶️ เริ่มงาน สำหรับ ID: **{emp_id}** เวลา {current_time_str} เรียบร้อยแล้ว!"
             elif activity_type == "Smoking":
                 success_message = f"🚭 เริ่มสูบบุหรี่ สำหรับ ID: **{emp_id}** เวลา {current_time_str} เรียบร้อยแล้ว!"
@@ -325,7 +325,7 @@ def submit_activity(activity_type):
             st.session_state["manual_emp_id_input_outside_form"] = "" 
             st.session_state["selectbox_chooser"] = "--- เลือก ID (ถ้ามี) ---" # 💥 [NEW] Reset selectbox
         else:
-            st.session_state.last_message = ("error", f"เกิดข้อผิดพลาดในการเริ่มกิจกรรม {activity_type}")
+            st.session_state.last_message = ("error", f"เกิดข้อผิดพลาดในการเริ่มพักเบรค {activity_type}")
             
     st.rerun() 
 
@@ -367,7 +367,7 @@ def main():
     main_col1, main_col2 = st.columns([1, 2])
 
     with main_col1:
-        st.title("ระบบบันทึกเวลากิจกรรม")
+        st.title("ระบบบันทึกเวลา")
         st.markdown(f"**บันทึกข้อมูลที่:** `{LOGS_DIR}`")
         
         # -----------------------------------------------------------------
@@ -384,7 +384,7 @@ def main():
             st.session_state.last_message = None 
         
         # -----------------------------------------------------------------
-        st.subheader("บันทึกกิจกรรม")
+        #st.subheader("บันทึกกิจกรรม")
 
         # 💥 [MODIFIED] 1. Selectbox (ตัวเลือกเสริม)
         options = ["--- เลือก ID (ถ้ามี) ---"] + existing_ids 
@@ -450,8 +450,8 @@ def main():
             is_disabled = not bool(emp_id_input) 
             
             # ปุ่มกิจกรรม (ใช้ on_click)
-            submitted_work = activity_buttons_col1.form_submit_button("เริ่มกิจกรรม", type="primary", use_container_width=True, disabled=is_disabled,
-                                                                    on_click=submit_activity, args=("Work",))
+            submitted_Break = activity_buttons_col1.form_submit_button("เริ่มพักเบรค", type="primary", use_container_width=True, disabled=is_disabled,
+                                                                    on_click=submit_activity, args=("Break",))
             submitted_smoking = activity_buttons_col2.form_submit_button("สูบบุหรี่", use_container_width=True, disabled=is_disabled,
                                                                        on_click=submit_activity, args=("Smoking",))
             submitted_toilet = activity_buttons_col3.form_submit_button("เข้าห้องน้ำ", use_container_width=True, disabled=is_disabled,
