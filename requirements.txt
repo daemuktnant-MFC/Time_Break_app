@@ -3,4 +3,3 @@ pandas
 numpy
 streamlit-qrcode-scanner
 streamlit-gsheets-connection
-
