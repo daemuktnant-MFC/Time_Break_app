@@ -188,9 +188,8 @@ def clock_out_latest_activity(employee_id, date_str, end_time_str):
             return True
             
     except Exception as e:
-        st.error(f"Clock-out error: {e}")
-        return False
-    
+        st.warning(f"Internal Clock-out Error for ID {employee_id}: {e}")
+        raise
     return False
 
 # 💥 [MODIFIED] ฟังก์ชันเริ่มพักเบรคใหม่
@@ -202,6 +201,7 @@ def log_activity_start(employee_id, date_str, start_time_str, activity_type):
         
         # 2. เพิ่มแถวใหม่
         conn = st.connection("supabase", type=SQLConnection)
+        
         sql_insert = """
         INSERT INTO time_logs 
         ("Employee_ID", "Date", "Start_Time", "End_Time", "Activity_Type", "Duration_Minutes") 
@@ -568,6 +568,7 @@ def main():
 # -----------------------------------------------------------------
 if __name__ == "__main__":
     main()
+
 
 
 
