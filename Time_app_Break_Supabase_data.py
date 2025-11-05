@@ -98,7 +98,7 @@ def save_unique_user_id(employee_id):
 
     try:
         conn = st.connection("supabase", type=SQLConnection)
-        conn.query('INSERT INTO user_data ("Employee_ID") VALUES (:Employee_ID) ON CONFLICT ("Employee_ID") DO NOTHING;',
+        conn.execute('INSERT INTO user_data ("Employee_ID") VALUES (:Employee_ID) ON CONFLICT ("Employee_ID") DO NOTHING;',
                    params=[{"Employee_ID": employee_id}]
         )
         st.cache_data.clear() # ล้าง cache ของ load_user_data
@@ -207,7 +207,7 @@ def log_activity_start(employee_id, date_str, start_time_str, activity_type):
         ("Employee_ID", "Date", "Start_Time", "End_Time", "Activity_Type", "Duration_Minutes") 
         VALUES (:Employee_ID, :Date, :Start_Time, :End_Time, :Activity_Type, :Duration_Minutes);
         """
-        conn.query(sql_insert, params=[{
+        conn.execute(sql_insert, params=[{
             "Employee_ID": employee_id,
             "Date": date_str,
             "Start_Time": start_time_str,
@@ -230,8 +230,7 @@ def delete_log_entry(log_id):
     """ลบ Log ตาม 'id' จาก Supabase"""
     try:
         conn = st.connection("supabase", type=SQLConnection)
-        # 💥 [FIX 6/7] เปลี่ยน params จาก [ ] เป็น ( ,)
-        conn.query('DELETE FROM time_logs WHERE id = :id;', params=[{"id": int(log_id)}])
+        conn.execute('DELETE FROM time_logs WHERE id = :id;', params=[{"id": int(log_id)}])
         st.cache_data.clear() # ล้าง cache ของ load_data
     except Exception as e:
         st.error(f"เกิดข้อผิดพลาดในการลบ Log ID {log_id}: {e}")
@@ -569,6 +568,7 @@ def main():
 # -----------------------------------------------------------------
 if __name__ == "__main__":
     main()
+
 
 
 
