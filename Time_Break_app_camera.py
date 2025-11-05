@@ -242,15 +242,15 @@ def prune_old_data():
     try:
         conn = st.connection("supabase", type=SQLConnection)
         cutoff_date = datetime.now().date() - timedelta(days=30)
-        
-        # ใช้ $1 เป็น parameter เพื่อความปลอดภัย
-        conn.query('DELETE FROM time_logs WHERE "Date" < $1;', params=[cutoff_date])
+
+        # 💥 [FIX] เปลี่ยน params จาก list [ ] เป็น tuple ( ,)
+        conn.query('DELETE FROM time_logs WHERE "Date" < $1;', params=(cutoff_date,))
+
         st.toast(f"ลบข้อมูลที่เก่ากว่า {cutoff_date} เรียบร้อยแล้ว (ถ้ามี)")
         st.cache_data.clear() # ล้าง cache ของ load_data
 
     except Exception as e:
         st.warning(f"เกิดข้อผิดพลาดขณะลบข้อมูลเก่า: {e}")
-
 
 # --- 2. ฟังก์ชันคำนวณและแสดงผล (เหมือนเดิม) ---
 
