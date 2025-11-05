@@ -97,8 +97,9 @@ def save_unique_user_id(employee_id):
     try:
         conn = st.connection("supabase", type=SQLConnection)
         # 💥 [FIX 1/7] เปลี่ยน params จาก list [ ] เป็น tuple ( ,)
-        conn.query('INSERT INTO user_data ("Employee_ID") VALUES ($1) ON CONFLICT ("Employee_ID") DO NOTHING;',
-                   params=(employee_id,))
+        conn.query(INSERT INTO user_data ("Employee_ID") VALUES (:Employee_ID) ON CONFLICT ("Employee_ID") DO NOTHING;',
+                   params=[{"Employee_ID": employee_id}]
+        )
         st.cache_data.clear() # ล้าง cache ของ load_user_data
     except Exception as e:
         st.error(f"เกิดข้อผิดพลาดในการบันทึก User ID: {e}")
@@ -153,19 +154,18 @@ def clock_out_latest_activity(employee_id, date_str, end_time_str):
         # 1. ค้นหา 'id' ของแถวล่าสุดที่ยังไม่ปิด
         sql_find = """
         SELECT id FROM time_logs 
-        WHERE "Employee_ID" = $1 AND "Date" = $2 AND "End_Time" IS NULL 
+        WHERE "Employee_ID" = :Employee_ID AND "Date" = :Date AND "End_Time" IS NULL 
         ORDER BY "Start_Time" DESC 
         LIMIT 1;
         """
-        # 💥 [FIX 2/7] เปลี่ยน params จาก [ ] เป็น ( )
-        result_df = conn.query(sql_find, params=(employee_id, date_str))
+        result_df = conn.query(sql_find, params=[{"Employee_ID": employee_id, "Date": date_str}])
         
         if not result_df.empty:
             log_id_to_update = result_df['id'].iloc[0]
             
             # 2. ดึง Start_Time มาคำนวณ
             # 💥 [FIX 3/7] เปลี่ยน params จาก [ ] เป็น ( ,)
-            start_time_df = conn.query('SELECT "Start_Time" FROM time_logs WHERE id = $1;', params=(int(log_id_to_update),))
+            start_time_df = conn.query('SELECT "Start_Time" FROM time_logs WHERE id = :id;',params=[{"id": int(log_id_to_update)}])
             start_time = pd.to_datetime(start_time_df['Start_Time'].iloc[0]).time().strftime('%H:%M:%S')
             
             duration = calculate_duration(start_time, end_time_str)
@@ -173,11 +173,10 @@ def clock_out_latest_activity(employee_id, date_str, end_time_str):
             # 3. อัปเดตแถวนั้น
             sql_update = """
             UPDATE time_logs 
-            SET "End_Time" = $1, "Duration_Minutes" = $2 
-            WHERE id = $3;
+            SET "End_Time" = :End_Time, "Duration_Minutes" = :Duration_Minutes 
+            WHERE id = :id;
             """
-            # 💥 [FIX 4/7] เปลี่ยน params จาก [ ] เป็น ( )
-            conn.query(sql_update, params=(end_time_str, duration, int(log_id_to_update)))
+            conn.query(sql_update, params=[{"End_Time": end_time_str,"Duration_Minutes": duration,"id": int(log_id_to_update)}])
             
             st.cache_data.clear() # ล้าง cache ของ load_data
             return True
@@ -200,17 +199,16 @@ def log_activity_start(employee_id, date_str, start_time_str, activity_type):
         sql_insert = """
         INSERT INTO time_logs 
         ("Employee_ID", "Date", "Start_Time", "End_Time", "Activity_Type", "Duration_Minutes") 
-        VALUES ($1, $2, $3, $4, $5, $6);
+        VALUES (:Employee_ID, :Date, :Start_Time, :End_Time, :Activity_Type, :Duration_Minutes);
         """
-        # 💥 [FIX 5/7] เปลี่ยน params จาก [ ] เป็น ( )
-        conn.query(sql_insert, params=(
-            employee_id, 
-            date_str, 
-            start_time_str, 
-            None,  # End_Time เป็น Null
-            activity_type, 
-            None   # Duration เป็น Null
-        ))
+        conn.query(sql_insert, params=[{
+            "Employee_ID": employee_id,
+            "Date": date_str,
+            "Start_Time": start_time_str,
+            "End_Time": None,
+            "Activity_Type": activity_type,
+            "Duration_Minutes": None
+        }])
         
         # 3. บันทึก ID ผู้ใช้
         save_unique_user_id(employee_id)
@@ -227,7 +225,7 @@ def delete_log_entry(log_id):
     try:
         conn = st.connection("supabase", type=SQLConnection)
         # 💥 [FIX 6/7] เปลี่ยน params จาก [ ] เป็น ( ,)
-        conn.query('DELETE FROM time_logs WHERE id = $1;', params=(int(log_id),))
+        conn.query('DELETE FROM time_logs WHERE id = :id;', params=[{"id": int(log_id)}])
         st.cache_data.clear() # ล้าง cache ของ load_data
     except Exception as e:
         st.error(f"เกิดข้อผิดพลาดในการลบ Log ID {log_id}: {e}")
@@ -565,4 +563,5 @@ def main():
 # -----------------------------------------------------------------
 if __name__ == "__main__":
     main()
+
 
