@@ -59,7 +59,9 @@ def load_data():
         df['Date'] = pd.to_datetime(df['Date']).dt.date.astype(str)
         df['Start_Time'] = pd.to_datetime(df['Start_Time']).dt.time.astype(str)
         # แปลง End_Time ที่เป็น NaT (Not a Time) หรือ None เป็น np.nan
-        df['End_Time'] = df['End_Time'].apply(lambda x: pd.to_datetime(x).time().strftime('%H:%M:%S') if pd.notna(x) else np.nan)
+        df['End_Time'] = df['End_Time'].apply(
+            lambda x: pd.to_datetime(x).time().strftime('%H:%M:%S') if pd.notna(x) and x not in [None, ""] else np.nan
+        )
         df['Duration_Minutes'] = pd.to_numeric(df['Duration_Minutes'], errors='coerce')
 
         return df
@@ -96,8 +98,7 @@ def save_unique_user_id(employee_id):
 
     try:
         conn = st.connection("supabase", type=SQLConnection)
-        # 💥 [FIX 1/7] เปลี่ยน params จาก list [ ] เป็น tuple ( ,)
-        conn.query(INSERT INTO user_data ("Employee_ID") VALUES (:Employee_ID) ON CONFLICT ("Employee_ID") DO NOTHING;',
+        conn.query('INSERT INTO user_data ("Employee_ID") VALUES (:Employee_ID) ON CONFLICT ("Employee_ID") DO NOTHING;',
                    params=[{"Employee_ID": employee_id}]
         )
         st.cache_data.clear() # ล้าง cache ของ load_user_data
@@ -264,7 +265,7 @@ def get_csv_content_with_bom(df_to_download):
     """ 💥 [MODIFIED] สร้างลิงก์ดาวน์โหลด CSV จาก DataFrame พร้อม BOM """
     try:
         # ไม่ต้องอ่านไฟล์แล้ว ใช้ DataFrame ที่ส่งเข้ามาได้เลย
-        csv_content = df_to_download.to_csv(index=False, encoding='utf-8')
+        csv_content = df_to_download.to_csv(index=False, encoding='utf-8-sig')
         bom = "\ufeff"
         content_with_bom = bom + csv_content
         return content_with_bom
@@ -563,5 +564,6 @@ def main():
 # -----------------------------------------------------------------
 if __name__ == "__main__":
     main()
+
 
 
