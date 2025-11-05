@@ -8,7 +8,6 @@ from streamlit_qrcode_scanner import qrcode_scanner
 
 # -----------------------------------------------------------------
 # 💥 [REMOVED] ลบตัวแปรที่เกี่ยวกับไฟล์ทิ้งทั้งหมด
-# LOGS_DIR, DATA_FILE, USER_DATA_FILE
 # -----------------------------------------------------------------
 
 # 💥 [MODIFIED] ชื่อคอลัมน์ใน DB (id คือ PK ที่เพิ่มมา)
@@ -47,8 +46,6 @@ div.stButton button[data-testid="baseButton-secondary"] {
 
 # --- 1. ฟังก์ชันจัดการข้อมูล (แก้ไขทั้งหมด) ---
 
-# 💥 [REMOVED] ลบ initialize_data_file() และ save_data()
-
 @st.cache_data(ttl=600) # Cache ข้อมูล 10 นาที
 def load_data():
     """ 💥 [MODIFIED] โหลดข้อมูลจาก Supabase """
@@ -59,7 +56,7 @@ def load_data():
                         ttl=60) # Cache query 1 นาที
 
         if df.empty:
-             return pd.DataFrame(columns=DB_COLUMNS)
+            return pd.DataFrame(columns=DB_COLUMNS)
 
         # จัดการประเภทข้อมูล (สำคัญมาก)
         df['Date'] = pd.to_datetime(df['Date']).dt.date.astype(str)
@@ -71,8 +68,8 @@ def load_data():
         return df
 
     except Exception as e:
-         st.error(f"เกิดข้อผิดพลาดในการโหลดข้อมูลจาก Supabase: {e}")
-         return pd.DataFrame(columns=DB_COLUMNS)
+        st.error(f"เกิดข้อผิดพลาดในการโหลดข้อมูลจาก Supabase: {e}")
+        return pd.DataFrame(columns=DB_COLUMNS)
 
 
 # -----------------------------------------------------------------
@@ -104,7 +101,7 @@ def save_unique_user_id(employee_id):
         conn = st.connection("supabase", type=SQLConnection)
         # ใช้ ON CONFLICT DO NOTHING เพื่อป้องกันการบันทึกซ้ำ (ต้องตั้ง "Employee_ID" เป็น PRIMARY KEY ใน Supabase)
         conn.query('INSERT INTO user_data ("Employee_ID") VALUES ($1) ON CONFLICT ("Employee_ID") DO NOTHING;',
-                   params=(employee_id,))
+                   params=(employee_id,)) # 💥 FIX: [ ] -> ( ,)
         st.cache_data.clear() # ล้าง cache ของ load_user_data
     except Exception as e:
         st.error(f"เกิดข้อผิดพลาดในการบันทึก User ID: {e}")
@@ -136,7 +133,7 @@ def calculate_duration(start_time_str, end_time_str):
                 continue
 
         if t_start_time is None or t_end_time is None:
-             return np.nan
+            return np.nan
 
         base_date = datetime(2000, 1, 1)
         t_start = datetime.combine(base_date, t_start_time)
@@ -163,13 +160,15 @@ def clock_out_latest_activity(employee_id, date_str, end_time_str):
         ORDER BY "Start_Time" DESC 
         LIMIT 1;
         """
-        result_df = conn.query(sql_find, params=[employee_id, date_str])
+        # 💥 [FIX] เปลี่ยน params จาก [ ] เป็น ( )
+        result_df = conn.query(sql_find, params=(employee_id, date_str))
         
         if not result_df.empty:
             log_id_to_update = result_df['id'].iloc[0]
             
             # 2. ดึง Start_Time มาคำนวณ
-            start_time_df = conn.query('SELECT "Start_Time" FROM time_logs WHERE id = $1;', params=[int(log_id_to_update)])
+            # 💥 [FIX] เปลี่ยน params จาก [ ] เป็น ( ,)
+            start_time_df = conn.query('SELECT "Start_Time" FROM time_logs WHERE id = $1;', params=(int(log_id_to_update),))
             start_time = pd.to_datetime(start_time_df['Start_Time'].iloc[0]).time().strftime('%H:%M:%S')
             
             duration = calculate_duration(start_time, end_time_str)
@@ -180,7 +179,8 @@ def clock_out_latest_activity(employee_id, date_str, end_time_str):
             SET "End_Time" = $1, "Duration_Minutes" = $2 
             WHERE id = $3;
             """
-            conn.query(sql_update, params=[end_time_str, duration, int(log_id_to_update)])
+            # 💥 [FIX] เปลี่ยน params จาก [ ] เป็น ( )
+            conn.query(sql_update, params=(end_time_str, duration, int(log_id_to_update)))
             
             st.cache_data.clear() # ล้าง cache ของ load_data
             return True
@@ -211,7 +211,7 @@ def log_activity_start(employee_id, date_str, start_time_str, activity_type):
             start_time_str, 
             None,  # End_Time เป็น Null
             activity_type, 
-            None # Duration เป็น Null
+            None   # Duration เป็น Null
         ))
         
         # 3. บันทึก ID ผู้ใช้
@@ -228,7 +228,7 @@ def delete_log_entry(log_id):
     """ลบ Log ตาม 'id' จาก Supabase"""
     try:
         conn = st.connection("supabase", type=SQLConnection)
-        conn.query('DELETE FROM time_logs WHERE id = $1;', params=(int(log_id),))
+        conn.query('DELETE FROM time_logs WHERE id = $1;', params=(int(log_id),)) # 💥 FIX: [ ] -> ( ,)
         st.cache_data.clear() # ล้าง cache ของ load_data
     except Exception as e:
         st.error(f"เกิดข้อผิดพลาดในการลบ Log ID {log_id}: {e}")
@@ -336,7 +336,7 @@ def submit_activity(activity_type):
             elif activity_type == "Smoking":
                 success_message = f"🚭 เริ่มสูบบุหรี่ สำหรับ ID: **{emp_id}** เวลา {current_time_str} เรียบร้อยแล้ว!"
             elif activity_type == "Toilet":
-                 success_message = f"🚻 เริ่มเข้าห้องน้ำ สำหรับ ID: **{emp_id}** เวลา {current_time_str} เรียบร้อยแล้ว!"
+                success_message = f"🚻 เริ่มเข้าห้องน้ำ สำหรับ ID: **{emp_id}** เวลา {current_time_str} เรียบร้อยแล้ว!"
             
             # 4. ตั้งค่า Message และล้างค่า
             st.session_state.last_message = ("success", success_message)
