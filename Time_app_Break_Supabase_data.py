@@ -177,7 +177,12 @@ def clock_out_latest_activity(employee_id, date_str, end_time_str):
             SET "End_Time" = :End_Time, "Duration_Minutes" = :Duration_Minutes 
             WHERE id = :id;
             """
-            conn.query(sql_update, params=[{"End_Time": end_time_str,"Duration_Minutes": duration,"id": int(log_id_to_update)}])
+            conn.query(sql_update, params=[{
+                "End_Time": end_time_str,
+                "Duration_Minutes": duration,
+                "id": int(log_id_to_update)
+            }])
+
             
             st.cache_data.clear() # ล้าง cache ของ load_data
             return True
@@ -564,6 +569,7 @@ def main():
 # -----------------------------------------------------------------
 if __name__ == "__main__":
     main()
+
 
 
 
