@@ -221,6 +221,25 @@ def log_activity_start(employee_id, date_str, start_time_str, activity_type):
         st.error(f"เกิดข้อผิดพลาดในการเริ่มพักเบรค {activity_type}: {e}")
         return False
 
+# 💥 [MODIFIED] ฟังก์ชันลบ
+def delete_log_entry(log_id):
+    """ลบ Log ตาม 'id' จาก Supabase"""
+    try:
+        conn = st.connection("supabase", type=SQLConnection)
+        # 💥 [FIX 6/7] เปลี่ยน params จาก [ ] เป็น ( ,)
+        conn.query('DELETE FROM time_logs WHERE id = $1;', params=(int(log_id),))
+        st.cache_data.clear() # ล้าง cache ของ load_data
+    except Exception as e:
+        st.error(f"เกิดข้อผิดพลาดในการลบ Log ID {log_id}: {e}")
+
+
+# -----------------------------------------------------------------
+# 💥 [REMOVED] ลบฟังก์ชัน prune_old_data() ออกตามที่ขอ
+# -----------------------------------------------------------------
+# def prune_old_data():
+# ... (โค้ดส่วนนี้ถูกลบแล้ว) ...
+
+
 # --- 2. ฟังก์ชันคำนวณและแสดงผล (เหมือนเดิม) ---
 
 def format_time_display(time_str):
@@ -338,6 +357,12 @@ def main():
         st.session_state.last_message = None
     if "selectbox_chooser" not in st.session_state:
         st.session_state["selectbox_chooser"] = "ค้นหา ID"
+
+
+    # --- 3.1 💥 [REMOVED] ลบ initialize_data_file() ---
+    
+    # 💥 [REMOVED] ลบการเรียกใช้ prune_old_data() ออกตามที่ขอ
+    # prune_old_data()
 
     # --- 3.2 โหลดข้อมูล ---
     df = load_data() # 💥 โหลดจาก Supabase
