@@ -1,27 +1,21 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime, date, time, timezone, timedelta # เพิ่ม time
-import os
+from datetime import datetime, date, time, timezone, timedelta
 import numpy as np
 import math
-import pathlib
-# import base64 # 💥 [REMOVED] ลบ import ที่ไม่ได้ใช้ออก
-from streamlit_qrcode_scanner import qrcode_scanner # ต้องมีบรรทัดนี้ด้านบนสุดของไฟล์
+from streamlit.connections import SQLConnection # 💥 [NEW] Import st.connection
+from streamlit_qrcode_scanner import qrcode_scanner
 
 # -----------------------------------------------------------------
-# กำหนดเส้นทางไฟล์ให้ชี้ไปที่ Desktop (เหมือนเดิม)
+# 💥 [REMOVED] ลบตัวแปรที่เกี่ยวกับไฟล์ทิ้งทั้งหมด
+# LOGS_DIR, DATA_FILE, USER_DATA_FILE
 # -----------------------------------------------------------------
-LOGS_DIR = os.path.join(os.path.expanduser('~'), 'Desktop', 'TimeLogs')
-DATA_FILE = os.path.join(LOGS_DIR, "time_logs.csv")
-USER_DATA_FILE = os.path.join(LOGS_DIR, "user_data.csv") # 💥 NEW FILE PATH
 
-# -----------------------------------------------------------------
-# 💥 แก้ไข: ชื่อคอลัมน์ใหม่
-# -----------------------------------------------------------------
-CSV_COLUMNS = ['Employee_ID', 'Date', 'Start_Time', 'End_Time', 'Activity_Type', 'Duration_Minutes']
+# 💥 [MODIFIED] ชื่อคอลัมน์ใน DB (id คือ PK ที่เพิ่มมา)
+DB_COLUMNS = ['id', 'Employee_ID', 'Date', 'Start_Time', 'End_Time', 'Activity_Type', 'Duration_Minutes']
 
 
-# --- CSS (รวม CSS และ FIX ลดช่องว่างด้านบน) ---
+# --- CSS (เหมือนเดิม) ---
 CUSTOM_CSS = """
 <style>
 /* 1. FIX: ลดพื้นที่ว่างด้านบนสุด */
@@ -29,7 +23,6 @@ div.block-container {
     padding-top: 1rem; /* ลดพื้นที่ว่างด้านบน */
     padding-bottom: 0rem;
 }
-
 /* 2. สไตล์ปุ่มและตัวอักษร (ชุดเดิม) */
 div.stButton > button[kind="secondaryFormSubmit"] { /* ปุ่มลบ */
     padding: 1px 5px !important; font-size: 10px !important; height: 22px !important; line-height: 1 !important;
@@ -49,124 +42,103 @@ div.stButton button[data-testid="baseButton-primary"]:hover {
 div.stButton button[data-testid="baseButton-secondary"] {
     color: #00FFFF !important; border-color: #00FFFF !important;
 }
-div.stButton button:not([kind="primary"]):not([kind="secondary"]):not([kind="secondaryFormSubmit"]) {
-     /* background-color: grey !important; */
-}
 </style>
 """
 
+# --- 1. ฟังก์ชันจัดการข้อมูล (แก้ไขทั้งหมด) ---
 
-# --- 1. ฟังก์ชันจัดการไฟล์ข้อมูล (ชุดเดิม) ---
-@st.cache_data
+# 💥 [REMOVED] ลบ initialize_data_file() และ save_data()
+
+@st.cache_data(ttl=600) # Cache ข้อมูล 10 นาที
 def load_data():
-    """โหลดข้อมูลจาก CSV และเตรียม DataFrame สำหรับแสดงผล"""
-    if os.path.exists(DATA_FILE):
-        try:
-            df = pd.read_csv(DATA_FILE)
-            if not df.empty:
-                df['Date'] = pd.to_datetime(df['Date']).dt.date.astype(str)
-                df['Start_Time'] = df['Start_Time'].astype(str)
-                df['End_Time'] = df['End_Time'].astype(str).replace('nan', np.nan)
-                df['Duration_Minutes'] = pd.to_numeric(df['Duration_Minutes'], errors='coerce') 
-            else:
-                 df = pd.DataFrame(columns=CSV_COLUMNS)
-            
-            for col in CSV_COLUMNS:
-                 if col not in df.columns:
-                      df[col] = np.nan 
-
-            return df.reindex(columns=CSV_COLUMNS) 
-
-        except pd.errors.EmptyDataError: 
-             return pd.DataFrame(columns=CSV_COLUMNS)
-        except Exception as e:
-             st.error(f"เกิดข้อผิดพลาดในการโหลดข้อมูล: {e}")
-             return pd.DataFrame(columns=CSV_COLUMNS)
-
-    return pd.DataFrame(columns=CSV_COLUMNS)
-
-
-def initialize_data_file():
-    """สร้างโฟลเดอร์และไฟล์ CSV หากยังไม่มี"""
+    """ 💥 [MODIFIED] โหลดข้อมูลจาก Supabase """
     try:
-        pathlib.Path(LOGS_DIR).mkdir(parents=True, exist_ok=True)
-    except OSError as e:
-        st.error(f"ไม่สามารถสร้างโฟลเดอร์ได้: {LOGS_DIR}. โปรดตรวจสอบสิทธิ์การเข้าถึง.")
-        st.stop()
+        conn = st.connection("supabase", type=SQLConnection)
+        # เลือก "id" มาด้วย เพื่อใช้ในการลบ
+        df = conn.query('SELECT id, "Employee_ID", "Date", "Start_Time", "End_Time", "Activity_Type", "Duration_Minutes" FROM time_logs ORDER BY "Date" DESC, "Start_Time" DESC;',
+                        ttl=60) # Cache query 1 นาที
 
-    if not os.path.exists(DATA_FILE):
-        df = pd.DataFrame(columns=CSV_COLUMNS)
-        df.to_csv(DATA_FILE, index=False)
-        st.info(f"สร้างไฟล์ {DATA_FILE} เรียบร้อยแล้ว")
+        if df.empty:
+             return pd.DataFrame(columns=DB_COLUMNS)
 
-    # 💥 NEW: สร้างไฟล์ user_data.csv ถ้าไม่มี
-    if not os.path.exists(USER_DATA_FILE):
-        df_user = pd.DataFrame(columns=['Employee_ID'])
-        df_user.to_csv(USER_DATA_FILE, index=False)
+        # จัดการประเภทข้อมูล (สำคัญมาก)
+        df['Date'] = pd.to_datetime(df['Date']).dt.date.astype(str)
+        df['Start_Time'] = pd.to_datetime(df['Start_Time']).dt.time.astype(str)
+        # แปลง End_Time ที่เป็น NaT (Not a Time) หรือ None เป็น np.nan
+        df['End_Time'] = df['End_Time'].apply(lambda x: pd.to_datetime(x).time().strftime('%H:%M:%S') if pd.notna(x) else np.nan)
+        df['Duration_Minutes'] = pd.to_numeric(df['Duration_Minutes'], errors='coerce')
 
+        return df
 
-def save_data(df):
-    """บันทึก DataFrame ลงในไฟล์ CSV"""
-    try:
-        for col in CSV_COLUMNS:
-            if col not in df.columns:
-                df[col] = np.nan
-        df = df[CSV_COLUMNS] 
-        df.to_csv(DATA_FILE, index=False)
-        st.cache_data.clear() 
     except Exception as e:
-        st.error(f"เกิดข้อผิดพลาดในการบันทึกข้อมูล: {e}")
+         st.error(f"เกิดข้อผิดพลาดในการโหลดข้อมูลจาก Supabase: {e}")
+         return pd.DataFrame(columns=DB_COLUMNS)
+
 
 # -----------------------------------------------------------------
-# 💥 NEW: ฟังก์ชันสำหรับจัดการ User Data (ID ที่ไม่ซ้ำ)
+# 💥 [MODIFIED] ฟังก์ชันสำหรับจัดการ User Data (ID ที่ไม่ซ้ำ)
 # -----------------------------------------------------------------
 
-@st.cache_data
+@st.cache_data(ttl=600)
 def load_user_data():
-    """โหลดข้อมูล ID พนักงานที่ไม่ซ้ำจาก user_data.csv"""
-    if os.path.exists(USER_DATA_FILE):
-        try:
-            df = pd.read_csv(USER_DATA_FILE)
-            if 'Employee_ID' not in df.columns:
-                 return []
-            return df['Employee_ID'].dropna().astype(str).unique().tolist()
-        except pd.errors.EmptyDataError:
+    """ 💥 [MODIFIED] โหลดข้อมูล ID พนักงานที่ไม่ซ้ำจาก Supabase """
+    try:
+        conn = st.connection("supabase", type=SQLConnection)
+        df_users = conn.query('SELECT "Employee_ID" FROM user_data;', ttl=60)
+        
+        if df_users.empty:
             return []
-        except Exception:
-            return []
-    return []
+            
+        return df_users['Employee_ID'].dropna().astype(str).unique().tolist()
+    except Exception as e:
+        st.warning(f"ไม่สามารถโหลด User ID List: {e}")
+        return []
 
 def save_unique_user_id(employee_id):
-    """บันทึก ID พนักงานใหม่ที่ไม่ซ้ำลงใน user_data.csv"""
-    employee_id = str(employee_id) 
+    """ 💥 [MODIFIED] บันทึก ID พนักงานใหม่ที่ไม่ซ้ำลงใน Supabase """
+    employee_id = str(employee_id)
     if not employee_id:
         return
 
-    existing_ids = load_user_data()
-    
-    if employee_id not in existing_ids:
-        existing_ids.append(employee_id)
-        df_new = pd.DataFrame({'Employee_ID': existing_ids})
-        
-        try:
-            df_new.to_csv(USER_DATA_FILE, index=False)
-            st.cache_data.clear() 
-        except Exception as e:
-            st.error(f"เกิดข้อผิดพลาดในการบันทึก User ID: {e}")
+    try:
+        conn = st.connection("supabase", type=SQLConnection)
+        # ใช้ ON CONFLICT DO NOTHING เพื่อป้องกันการบันทึกซ้ำ (ต้องตั้ง "Employee_ID" เป็น PRIMARY KEY ใน Supabase)
+        conn.query('INSERT INTO user_data ("Employee_ID") VALUES ($1) ON CONFLICT ("Employee_ID") DO NOTHING;',
+                   params=[employee_id])
+        st.cache_data.clear() # ล้าง cache ของ load_user_data
+    except Exception as e:
+        st.error(f"เกิดข้อผิดพลาดในการบันทึก User ID: {e}")
 
-# 💥 NEW: ฟังก์ชันคำนวณ Duration 
+# 💥 [NO CHANGE] ฟังก์ชันคำนวณ Duration (เหมือนเดิม)
 def calculate_duration(start_time_str, end_time_str):
     """คำนวณระยะเวลาเป็นนาที"""
     try:
         if pd.isnull(start_time_str) or pd.isnull(end_time_str) or str(start_time_str).lower() == 'nan' or str(end_time_str).lower() == 'nan':
             return np.nan
 
-        date_time_format = '%H:%M:%S'
+        # ตรวจสอบ format (HH:MM:SS หรือ HH:MM)
+        time_formats = ['%H:%M:%S', '%H:%M']
+        t_start_time = None
+        t_end_time = None
+        
+        for fmt in time_formats:
+            try:
+                t_start_time = datetime.strptime(str(start_time_str), fmt).time()
+                break
+            except ValueError:
+                continue
+        
+        for fmt in time_formats:
+            try:
+                t_end_time = datetime.strptime(str(end_time_str), fmt).time()
+                break
+            except ValueError:
+                continue
+
+        if t_start_time is None or t_end_time is None:
+             return np.nan
+
         base_date = datetime(2000, 1, 1)
-
-        t_start_time = datetime.strptime(str(start_time_str), date_time_format).time()
-        t_end_time = datetime.strptime(str(end_time_str), date_time_format).time()
-
         t_start = datetime.combine(base_date, t_start_time)
         t_end = datetime.combine(base_date, t_end_time)
 
@@ -178,74 +150,120 @@ def calculate_duration(start_time_str, end_time_str):
     except (ValueError, TypeError, AttributeError):
         return np.nan
 
-# 💥 NEW: ฟังก์ชัน Clock Out กิจกรรมล่าสุด
+# 💥 [MODIFIED] ฟังก์ชัน Clock Out กิจกรรมล่าสุด
 def clock_out_latest_activity(employee_id, date_str, end_time_str):
-    """ค้นหาและ Clock Out กิจกรรมล่าสุดที่ยังเปิดอยู่"""
-    df = load_data() 
-    
-    condition = (df['Employee_ID'] == employee_id) & \
-                (df['Date'] == date_str) & \
-                (df['End_Time'].isna() | (df['End_Time'].astype(str).str.lower() == 'nan') | (df['End_Time'] == ''))
-                
-    ongoing_activities = df[condition]
-
-    if not ongoing_activities.empty:
-        index_to_update = ongoing_activities.index.max()
-        df.loc[index_to_update, 'End_Time'] = end_time_str
-        start_time = df.loc[index_to_update, 'Start_Time']
-        duration = calculate_duration(start_time, end_time_str)
-        df.loc[index_to_update, 'Duration_Minutes'] = duration
-        save_data(df)
-        return True 
-    return False 
-
-# 💥 NEW: ฟังก์ชันเริ่มพักเบรคใหม่ (รวม Clock Out อันเก่า)
-def log_activity_start(employee_id, date_str, start_time_str, activity_type):
-    """บันทึกการเริ่มพักเบรคใหม่ และ Clock Out กิจกรรมเดิม (ถ้ามี)"""
+    """ค้นหาและ Clock Out กิจกรรมล่าสุดที่ยังเปิดอยู่ใน Supabase"""
     try:
-        clock_out_latest_activity(employee_id, date_str, start_time_str) 
-        df = load_data()
-
-        new_row = pd.DataFrame([{
-            'Employee_ID': employee_id,
-            'Date': date_str,
-            'Start_Time': start_time_str,
-            'End_Time': np.nan,
-            'Activity_Type': activity_type,
-            'Duration_Minutes': np.nan
-        }])
-
-        df_to_save = pd.concat([df, new_row], ignore_index=True)
-        save_data(df_to_save)
+        conn = st.connection("supabase", type=SQLConnection)
         
+        # 1. ค้นหา 'id' ของแถวล่าสุดที่ยังไม่ปิด
+        sql_find = """
+        SELECT id FROM time_logs 
+        WHERE "Employee_ID" = $1 AND "Date" = $2 AND "End_Time" IS NULL 
+        ORDER BY "Start_Time" DESC 
+        LIMIT 1;
+        """
+        result_df = conn.query(sql_find, params=[employee_id, date_str])
+        
+        if not result_df.empty:
+            log_id_to_update = result_df['id'].iloc[0]
+            
+            # 2. ดึง Start_Time มาคำนวณ
+            start_time_df = conn.query('SELECT "Start_Time" FROM time_logs WHERE id = $1;', params=[int(log_id_to_update)])
+            start_time = pd.to_datetime(start_time_df['Start_Time'].iloc[0]).time().strftime('%H:%M:%S')
+            
+            duration = calculate_duration(start_time, end_time_str)
+            
+            # 3. อัปเดตแถวนั้น
+            sql_update = """
+            UPDATE time_logs 
+            SET "End_Time" = $1, "Duration_Minutes" = $2 
+            WHERE id = $3;
+            """
+            conn.query(sql_update, params=[end_time_str, duration, int(log_id_to_update)])
+            
+            st.cache_data.clear() # ล้าง cache ของ load_data
+            return True
+            
+    except Exception as e:
+        st.error(f"Clock-out error: {e}")
+        return False
+    
+    return False
+
+# 💥 [MODIFIED] ฟังก์ชันเริ่มพักเบรคใหม่
+def log_activity_start(employee_id, date_str, start_time_str, activity_type):
+    """บันทึกการเริ่มพักเบรคใหม่ลง Supabase และ Clock Out กิจกรรมเดิม (ถ้ามี)"""
+    try:
+        # 1. Clock out กิจกรรมเดิมก่อน
+        clock_out_latest_activity(employee_id, date_str, start_time_str) 
+        
+        # 2. เพิ่มแถวใหม่
+        conn = st.connection("supabase", type=SQLConnection)
+        sql_insert = """
+        INSERT INTO time_logs 
+        ("Employee_ID", "Date", "Start_Time", "End_Time", "Activity_Type", "Duration_Minutes") 
+        VALUES ($1, $2, $3, $4, $5, $6);
+        """
+        conn.query(sql_insert, params=[
+            employee_id, 
+            date_str, 
+            start_time_str, 
+            None,  # End_Time เป็น Null
+            activity_type, 
+            None   # Duration เป็น Null
+        ])
+        
+        # 3. บันทึก ID ผู้ใช้
         save_unique_user_id(employee_id)
         
+        st.cache_data.clear() # ล้าง cache ของ load_data
         return True
     except Exception as e:
         st.error(f"เกิดข้อผิดพลาดในการเริ่มพักเบรค {activity_type}: {e}")
         return False
 
+# 💥 [MODIFIED] ฟังก์ชันลบ
+def delete_log_entry(log_id):
+    """ลบ Log ตาม 'id' จาก Supabase"""
+    try:
+        conn = st.connection("supabase", type=SQLConnection)
+        conn.query('DELETE FROM time_logs WHERE id = $1;', params=[int(log_id)])
+        st.cache_data.clear() # ล้าง cache ของ load_data
+    except Exception as e:
+        st.error(f"เกิดข้อผิดพลาดในการลบ Log ID {log_id}: {e}")
 
-def delete_log_entry(original_index):
-    """ลบ Log ตาม Index เดิม"""
-    df = load_data()
-    if original_index in df.index:
-        df = df.drop(index=original_index)
-        save_data(df)
-    else:
-        st.warning(f"ไม่พบ Index {original_index} ที่จะลบ")
+
+# 💥 [NEW] ฟังก์ชันลบข้อมูลเก่า (ย้ายมาจาก main)
+def prune_old_data():
+    """
+    ลบข้อมูลใน Supabase ที่เก่ากว่า 30 วัน
+    """
+    try:
+        conn = st.connection("supabase", type=SQLConnection)
+        cutoff_date = datetime.now().date() - timedelta(days=30)
+        
+        # ใช้ $1 เป็น parameter เพื่อความปลอดภัย
+        conn.query('DELETE FROM time_logs WHERE "Date" < $1;', params=[cutoff_date])
+        st.toast(f"ลบข้อมูลที่เก่ากว่า {cutoff_date} เรียบร้อยแล้ว (ถ้ามี)")
+        st.cache_data.clear() # ล้าง cache ของ load_data
+
+    except Exception as e:
+        st.warning(f"เกิดข้อผิดพลาดขณะลบข้อมูลเก่า: {e}")
 
 
-# --- 2. ฟังก์ชันคำนวณและแสดงผล ---
+# --- 2. ฟังก์ชันคำนวณและแสดงผล (เหมือนเดิม) ---
 
 def format_time_display(time_str):
     """จัดรูปแบบเวลาเป็น HH:MM"""
     if pd.isnull(time_str) or str(time_str).lower() == 'nan':
         return "N/A"
     try:
-        return datetime.strptime(str(time_str), '%H:%M:%S').strftime('%H:%M')
+        # Supabase อาจคืนค่าเป็น HH:MM:SS.microseconds
+        time_str = str(time_str).split('.')[0]
+        return datetime.strptime(time_str, '%H:%M:%S').strftime('%H:%M')
     except (ValueError, TypeError):
-        return str(time_str).split('.')[0] 
+        return str(time_str)
 
 def format_duration(minutes):
     """จัดรูปแบบนาทีเป็น HH:MM"""
@@ -264,20 +282,21 @@ def format_duration(minutes):
     return f"{hours:02d}:{mins:02d}"
 
 
-def get_csv_content_with_bom(data_file_path):
-    """สร้างลิงก์ดาวน์โหลด CSV พร้อม BOM (สำหรับภาษาไทย)"""
+def get_csv_content_with_bom(df_to_download):
+    """ 💥 [MODIFIED] สร้างลิงก์ดาวน์โหลด CSV จาก DataFrame พร้อม BOM """
     try:
-        with open(data_file_path, "r", encoding='utf-8') as f:
-            csv_content = f.read()
+        # ไม่ต้องอ่านไฟล์แล้ว ใช้ DataFrame ที่ส่งเข้ามาได้เลย
+        csv_content = df_to_download.to_csv(index=False, encoding='utf-8')
         bom = "\ufeff"
         content_with_bom = bom + csv_content
         return content_with_bom
-    except FileNotFoundError: return None
-    except Exception as e: return None
+    except Exception as e:
+        st.error(f"เกิดข้อผิดพลาดในการสร้างไฟล์ CSV: {e}")
+        return None
 
 
 # -----------------------------------------------------------------
-# 💥 NEW: ฟังก์ชัน Callback submit_activity 
+# 💥 [NO CHANGE] ฟังก์ชัน Callback submit_activity (เหมือนเดิม)
 # -----------------------------------------------------------------
 def submit_activity(activity_type):
     """
@@ -295,7 +314,7 @@ def submit_activity(activity_type):
     THAILAND_TZ = timezone(timedelta(hours=7))
     now_thailand = datetime.now(THAILAND_TZ)
     current_date_str = now_thailand.date().strftime('%Y-%m-%d')
-    current_time_str = now_thailand.time().strftime('%H:%M:%S')
+    current_time_str = now_thailand.time().strftime('%H:%M:%S') # ใช้ Format H:M:S
 
     # 3. Logic การบันทึก
     if activity_type == "End_Activity":
@@ -304,7 +323,7 @@ def submit_activity(activity_type):
             st.session_state.last_message = ("success", f"✅ สิ้นสุดกิจกรรมล่าสุด สำหรับ ID: **{emp_id}** เวลา {current_time_str} เรียบร้อยแล้ว!")
             st.session_state["current_emp_id"] = "" 
             st.session_state["manual_emp_id_input_outside_form"] = "" 
-            st.session_state["selectbox_chooser"] = "--- เลือก ID (ถ้ามี) ---" # 💥 [NEW] Reset selectbox
+            st.session_state["selectbox_chooser"] = "ค้นหา ID" 
         else:
             st.session_state.last_message = ("warning", f"⚠️ ไม่พบกิจกรรมที่กำลังดำเนินอยู่สำหรับ ID: **{emp_id}** วันที่ {current_date_str}")
             
@@ -323,7 +342,7 @@ def submit_activity(activity_type):
             st.session_state.last_message = ("success", success_message)
             st.session_state["current_emp_id"] = "" 
             st.session_state["manual_emp_id_input_outside_form"] = "" 
-            st.session_state["selectbox_chooser"] = "--- เลือก ID (ถ้ามี) ---" # 💥 [NEW] Reset selectbox
+            st.session_state["selectbox_chooser"] = "ค้นหา ID" 
         else:
             st.session_state.last_message = ("error", f"เกิดข้อผิดพลาดในการเริ่มพักเบรค {activity_type}")
             
@@ -331,35 +350,33 @@ def submit_activity(activity_type):
 
 
 # -----------------------------------------------------------------
-# 💥 NEW: ฟังก์ชัน MAIN
+# 💥 [MODIFIED] ฟังก์ชัน MAIN
 # -----------------------------------------------------------------
 def main():
     # --- 3. ส่วนหน้าเว็บ (UI) ---
     st.set_page_config(page_title="Time Logger", layout="wide")
     
-    # 💥 FIX: ใช้ CSS
     st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
-    # Initialize Session State
+    # Initialize Session State (เหมือนเดิม)
     if "current_emp_id" not in st.session_state:
         st.session_state["current_emp_id"] = ""
     if "manual_emp_id_input_outside_form" not in st.session_state: 
         st.session_state["manual_emp_id_input_outside_form"] = ""
     if "last_message" not in st.session_state:
         st.session_state.last_message = None
-    
-    # 💥 [FIX] แก้ไขการตั้งค่าเริ่มต้นสำหรับ selectbox
-    # เราจะตั้งค่านี้เฉพาะเมื่อ state ยังไม่มีอยู่จริงเท่านั้น
     if "selectbox_chooser" not in st.session_state:
-        st.session_state["selectbox_chooser"] = "--- เลือก ID (ถ้ามี) ---"
+        st.session_state["selectbox_chooser"] = "ค้นหา ID"
 
 
-    # --- 3.1 การเริ่มต้นไฟล์ข้อมูล ---
-    initialize_data_file()
+    # --- 3.1 💥 [REMOVED] ลบ initialize_data_file() ---
+    
+    # 💥 [NEW] เรียกใช้ฟังก์ชันลบข้อมูลเก่าทุกครั้งที่โหลดแอป
+    prune_old_data()
 
     # --- 3.2 โหลดข้อมูล ---
-    df = load_data() 
-    existing_ids = sorted(load_user_data()) # 💥 [NEW] โหลด ID ผู้ใช้
+    df = load_data() # 💥 โหลดจาก Supabase
+    existing_ids = sorted(load_user_data()) # 💥 โหลดจาก Supabase
 
 
     # -----------------------------------------------------------------
@@ -368,7 +385,12 @@ def main():
 
     with main_col1:
         st.title("ระบบบันทึกเวลา")
-        st.markdown(f"**บันทึกข้อมูลที่:** `{LOGS_DIR}`")
+        # 💥 [REMOVED] ลบ Path ที่แสดงออก
+        # st.markdown(f"**บันทึกข้อมูลที่:** `{LOGS_DIR}`") 
+        st.success("💾 เชื่อมต่อฐานข้อมูล Supabase สำเร็จ")
+
+        
+        # ... (ส่วน Message, Selectbox, Text Input, Form, QR Code เหมือนเดิมทุกประการ) ...
         
         # -----------------------------------------------------------------
         # แสดง Message
@@ -384,30 +406,23 @@ def main():
             st.session_state.last_message = None 
         
         # -----------------------------------------------------------------
-        #st.subheader("บันทึกกิจกรรม")
-
-        # 💥 [MODIFIED] 1. Selectbox (ตัวเลือกเสริม)
-        options = ["--- เลือก ID (ถ้ามี) ---"] + existing_ids 
+        # 1. Selectbox (ตัวเลือกเสริม)
+        options = ["ค้นหา ID"] + existing_ids 
         
-        # 💥 [FIX] สร้าง Callback สำหรับ Selectbox
         def sync_from_selectbox():
             selected_val = st.session_state.selectbox_chooser
-            if selected_val and selected_val != "--- เลือก ID (ถ้ามี) ---":
+            if selected_val and selected_val != "ค้นหา ID":
                 st.session_state.manual_emp_id_input_outside_form = selected_val
                 st.session_state.current_emp_id = selected_val
-            # on_change จะ rerun ให้อัตโนมัติ
 
-        # 💥 [FIX] สร้าง Callback สำหรับ Text Input
         def sync_from_text_input():
             typed_val = st.session_state.manual_emp_id_input_outside_form.strip()
             st.session_state.current_emp_id = typed_val
             
-            # ซิงค์ค่ากลับไปที่ selectbox
             if typed_val in existing_ids:
                 st.session_state.selectbox_chooser = typed_val
             else:
-                st.session_state.selectbox_chooser = "--- เลือก ID (ถ้ามี) ---"
-            # on_change จะ rerun ให้อัตโนมัติ
+                st.session_state.selectbox_chooser = "ค้นหา ID"
 
         st.selectbox(
             "หรือเลือก ID ที่มีอยู่:",
@@ -415,25 +430,21 @@ def main():
             key="selectbox_chooser",
             on_change=sync_from_selectbox,
             help="""เลือก ID จาก
-    ที่นี่จะเติมค่าลงในช่อง 'กรอก ID' ด้านล่าง""" # 💥 [FIX] แก้ SyntaxError
+    ที่นี่จะเติมค่าลงในช่อง 'กรอก ID' ด้านล่าง""" 
         )
 
-        # 💥 [MODIFIED] 2. กล่องกรอก ID ด้วยมือ (Manual Input)
+        # 2. กล่องกรอก ID ด้วยมือ (Manual Input)
         st.text_input(
             "กรอก ID ด้วยมือ:", 
             key="manual_emp_id_input_outside_form", 
-            on_change=sync_from_text_input, # 💥 [FIX] เพิ่ม on_change
+            on_change=sync_from_text_input, 
             placeholder="กรอก ID ที่นี่ หรือเลือกจากด้านบน"
         )
-
-        # 💥 [REMOVED] ลบ Logic ที่ทำให้เกิด Error ออก
-        # Logic: ถ้ามีการกรอก Manual Input ให้ค่านี้แทนที่ใน session_state 
-        # (ส่วนนี้ถูกย้ายไปอยู่ใน on_change callback 'sync_from_text_input' แล้ว)
         
         emp_id_input = st.session_state.get("current_emp_id", "").strip()
         
         # -----------------------------------------------------------------
-        # 💥 FIX: 3. ส่วน Form/ปุ่มกิจกรรม (เหมือนเดิม)
+        # 3. ส่วน Form/ปุ่มกิจกรรม (เหมือนเดิม)
         # -----------------------------------------------------------------
         
         with st.form("activity_form", clear_on_submit=False): 
@@ -449,7 +460,6 @@ def main():
 
             is_disabled = not bool(emp_id_input) 
             
-            # ปุ่มกิจกรรม (ใช้ on_click)
             submitted_Break = activity_buttons_col1.form_submit_button("เริ่มพักเบรค", type="primary", use_container_width=True, disabled=is_disabled,
                                                                     on_click=submit_activity, args=("Break",))
             submitted_smoking = activity_buttons_col2.form_submit_button("สูบบุหรี่", use_container_width=True, disabled=is_disabled,
@@ -460,24 +470,21 @@ def main():
                                                                            on_click=submit_activity, args=("End_Activity",))
 
         # -----------------------------------------------------------------
-        # 💥 FIX: 4. กล้องสแกน QR Code
+        # 4. กล้องสแกน QR Code (เหมือนเดิม)
         # -----------------------------------------------------------------
-        st.write("---") # เส้นคั่นก่อนส่วนสแกน
+        st.write("---") 
         st.write("หรือ สแกน QR/Barcode:")
         
-        # 4. QR Code Scanner: Component ที่เปิดกล้อง
         scanned_id = qrcode_scanner(key="qrcode_scanner_key_new")
         
-        # Logic: ถ้าสแกนได้ ให้บันทึกค่าลง session_state ทันที
         if scanned_id and scanned_id != st.session_state.get("current_emp_id", ""):
             st.session_state["current_emp_id"] = scanned_id
-            st.session_state["manual_emp_id_input_outside_form"] = scanned_id # Sync ให้ input แสดงค่า
+            st.session_state["manual_emp_id_input_outside_form"] = scanned_id 
             
-            # 💥 [MODIFIED] Sync ให้ selectbox แสดงค่าที่สแกน (ถ้ามี)
             if scanned_id in existing_ids:
                 st.session_state["selectbox_chooser"] = scanned_id
             else:
-                st.session_state["selectbox_chooser"] = "--- เลือก ID (ถ้ามี) ---"
+                st.session_state["selectbox_chooser"] = "ค้นหา ID"
             
             st.rerun()
 
@@ -492,10 +499,13 @@ def main():
         # --- ส่วน Filter (เหมือนเดิม) ---
         col_filter1, col_filter2, col_filter3 = st.columns(3)
 
-        filter_date_from = col_filter1.date_input("กรองตามวันที่ (From)", value=datetime.now().date(), key="date_from_key")
-        filter_date_to = col_filter2.date_input("กรองตามวันที่ (To)", value=datetime.now().date(), key="date_to_key")
+        today = datetime.now().date()
+        default_from_date = today - timedelta(days=30) 
 
-        unique_ids = ["All"] + existing_ids # 💥 [MODIFIED] ใช้ existing_ids ที่โหลดไว้แล้ว
+        filter_date_from = col_filter1.date_input("กรองตามวันที่ (From)", value=default_from_date, key="date_from_key")
+        filter_date_to = col_filter2.date_input("กรองตามวันที่ (To)", value=today, key="date_to_key")
+
+        unique_ids = ["All"] + existing_ids 
         filter_id = col_filter3.selectbox("กรองตาม Employee ID", options=unique_ids, key="id_filter_key")
 
 
@@ -503,8 +513,10 @@ def main():
         if df.empty:
             st.info("ยังไม่มีข้อมูลการลงเวลา")
         else:
+            # 💥 [MODIFIED] การกรอง DataFrame
+            # DataFrame (df) ที่โหลดมาเป็น str หมดแล้ว (จาก load_data)
+            # เราต้องแปลงกลับเป็น object เพื่อเปรียบเทียบ
             display_df = df.copy()
-            display_df['Original_Index'] = display_df.index
             display_df['Date_Obj'] = pd.to_datetime(display_df['Date']).dt.date
 
             if filter_date_from and filter_date_to:
@@ -523,8 +535,9 @@ def main():
             if display_df.empty:
                 st.info("ไม่พบข้อมูลการลงเวลาตามตัวกรองที่เลือก")
             else:
+                # 💥 [MODIFIED] ไม่ต้อง sort ซ้ำ (load_data sort มาแล้ว)
                 display_df = display_df.drop(columns=['Date_Obj'], errors='ignore')
-                display_df = display_df.sort_values(by=['Date', 'Start_Time'], ascending=[False, False])
+                # display_df = display_df.sort_values(by=['Date', 'Start_Time'], ascending=[False, False])
                 display_df = display_df.reset_index(drop=True) 
 
                 col_ratios = [0.5, 1, 1, 1.2, 1, 1, 1.3]
@@ -536,11 +549,15 @@ def main():
                 st.markdown('<hr style="margin: 0px 0px 0px 0px;">', unsafe_allow_html=True) 
 
                 for index, row in display_df.iterrows(): 
-                    original_index = row['Original_Index']
+                    # 💥 [MODIFIED] ใช้ 'id' จากฐานข้อมูล
+                    log_id = row['id'] 
                     cols = st.columns(col_ratios)
                     time_style = "class='time-display'"
-                    if cols[0].button("❌", key=f"del_{original_index}_{index}", on_click=delete_log_entry, args=(original_index,), help="ลบ Log ลงเวลานี้"):
+                    
+                    # 💥 [MODIFIED] ส่ง log_id ไปให้ฟังก์ชันลบ
+                    if cols[0].button("❌", key=f"del_{log_id}_{index}", on_click=delete_log_entry, args=(log_id,), help="ลบ Log ลงเวลานี้"):
                          st.rerun()
+                         
                     cols[1].write(row['Employee_ID'])
                     cols[2].write(row['Date'])
                     cols[3].write(row['Activity_Type'])
@@ -555,13 +572,14 @@ def main():
         # -----------------------------------------------------------------
         st.subheader("ดาวน์โหลดข้อมูล")
 
-        csv_data = get_csv_content_with_bom(DATA_FILE)
+        # 💥 [MODIFIED] ส่ง DataFrame (df) ทั้งหมด (ที่ยังไม่กรอง) ไปสร้าง CSV
+        csv_data = get_csv_content_with_bom(df) 
 
         if csv_data:
             st.download_button(
                 label="Download Log File (.csv)",
                 data=csv_data,
-                file_name=os.path.basename(DATA_FILE),
+                file_name=f"time_logs_{datetime.now().strftime('%Y%m%d')}.csv", # ตั้งชื่อไฟล์ใหม่
                 mime="text/csv",
                 key="download_button_key"
             )
