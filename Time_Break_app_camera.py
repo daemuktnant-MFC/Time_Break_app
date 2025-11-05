@@ -221,36 +221,6 @@ def log_activity_start(employee_id, date_str, start_time_str, activity_type):
         st.error(f"เกิดข้อผิดพลาดในการเริ่มพักเบรค {activity_type}: {e}")
         return False
 
-# 💥 [MODIFIED] ฟังก์ชันลบ
-def delete_log_entry(log_id):
-    """ลบ Log ตาม 'id' จาก Supabase"""
-    try:
-        conn = st.connection("supabase", type=SQLConnection)
-        # 💥 [FIX 6/7] เปลี่ยน params จาก [ ] เป็น ( ,)
-        conn.query('DELETE FROM time_logs WHERE id = $1;', params=(int(log_id),))
-        st.cache_data.clear() # ล้าง cache ของ load_data
-    except Exception as e:
-        st.error(f"เกิดข้อผิดพลาดในการลบ Log ID {log_id}: {e}")
-
-
-# 💥 [NEW] ฟังก์ชันลบข้อมูลเก่า (ย้ายมาจาก main)
-def prune_old_data():
-    """
-    ลบข้อมูลใน Supabase ที่เก่ากว่า 30 วัน
-    """
-    try:
-        conn = st.connection("supabase", type=SQLConnection)
-        cutoff_date = datetime.now().date() - timedelta(days=30)
-
-        # 💥 [FIX 7/7] เปลี่ยน params จาก [ ] เป็น ( ,)
-        conn.query('DELETE FROM time_logs WHERE "Date" < $1;', params=(cutoff_date,))
-
-        st.toast(f"ลบข้อมูลที่เก่ากว่า {cutoff_date} เรียบร้อยแล้ว (ถ้ามี)")
-        st.cache_data.clear() # ล้าง cache ของ load_data
-
-    except Exception as e:
-        st.warning(f"เกิดข้อผิดพลาดขณะลบข้อมูลเก่า: {e}")
-
 # --- 2. ฟังก์ชันคำนวณและแสดงผล (เหมือนเดิม) ---
 
 def format_time_display(time_str):
