@@ -104,7 +104,7 @@ def save_unique_user_id(employee_id):
         conn = st.connection("supabase", type=SQLConnection)
         # ใช้ ON CONFLICT DO NOTHING เพื่อป้องกันการบันทึกซ้ำ (ต้องตั้ง "Employee_ID" เป็น PRIMARY KEY ใน Supabase)
         conn.query('INSERT INTO user_data ("Employee_ID") VALUES ($1) ON CONFLICT ("Employee_ID") DO NOTHING;',
-                   params=[employee_id])
+                   params=(employee_id,))
         st.cache_data.clear() # ล้าง cache ของ load_user_data
     except Exception as e:
         st.error(f"เกิดข้อผิดพลาดในการบันทึก User ID: {e}")
@@ -205,14 +205,14 @@ def log_activity_start(employee_id, date_str, start_time_str, activity_type):
         ("Employee_ID", "Date", "Start_Time", "End_Time", "Activity_Type", "Duration_Minutes") 
         VALUES ($1, $2, $3, $4, $5, $6);
         """
-        conn.query(sql_insert, params=[
+        conn.query(sql_insert, params=(
             employee_id, 
             date_str, 
             start_time_str, 
             None,  # End_Time เป็น Null
             activity_type, 
-            None   # Duration เป็น Null
-        ])
+            None # Duration เป็น Null
+        ))
         
         # 3. บันทึก ID ผู้ใช้
         save_unique_user_id(employee_id)
@@ -228,7 +228,7 @@ def delete_log_entry(log_id):
     """ลบ Log ตาม 'id' จาก Supabase"""
     try:
         conn = st.connection("supabase", type=SQLConnection)
-        conn.query('DELETE FROM time_logs WHERE id = $1;', params=[int(log_id)])
+        conn.query('DELETE FROM time_logs WHERE id = $1;', params=(int(log_id),))
         st.cache_data.clear() # ล้าง cache ของ load_data
     except Exception as e:
         st.error(f"เกิดข้อผิดพลาดในการลบ Log ID {log_id}: {e}")
