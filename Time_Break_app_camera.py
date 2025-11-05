@@ -339,12 +339,6 @@ def main():
     if "selectbox_chooser" not in st.session_state:
         st.session_state["selectbox_chooser"] = "ค้นหา ID"
 
-
-    # --- 3.1 💥 [REMOVED] ลบ initialize_data_file() ---
-    
-    # 💥 [NEW] เรียกใช้ฟังก์ชันลบข้อมูลเก่าทุกครั้งที่โหลดแอป
-    prune_old_data()
-
     # --- 3.2 โหลดข้อมูล ---
     df = load_data() # 💥 โหลดจาก Supabase
     existing_ids = sorted(load_user_data()) # 💥 โหลดจาก Supabase
