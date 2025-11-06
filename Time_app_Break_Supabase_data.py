@@ -56,13 +56,27 @@ def load_data():
         if df.empty:
             return pd.DataFrame(columns=DB_COLUMNS)
 
-        # จัดการประเภทข้อมูล (สำคัญมาก)
+        # -----------------------------------------------------------------
+        # 💥 [FIX] แก้ไขการแปลงประเภทข้อมูลที่นี่
+        # -----------------------------------------------------------------
+        
+        # 1. 'Date' (ประเภท date) - อันนี้ถูกต้องแล้ว
         df['Date'] = pd.to_datetime(df['Date']).dt.date.astype(str)
-        df['Start_Time'] = pd.to_datetime(df['Start_Time']).dt.time.astype(str)
-        # แปลง End_Time ที่เป็น NaT (Not a Time) หรือ None เป็น np.nan
-        df['End_Time'] = df['End_Time'].apply(
-            lambda x: pd.to_datetime(x).time().strftime('%H:%M:%S') if pd.notna(x) and x not in [None, ""] else np.nan
+        
+        # 2. 'Start_Time' (ประเภท time)
+        # ถูกอ่านค่ามาเป็น datetime.time object
+        # เราไม่สามารถใช้ pd.to_datetime() กับมันได้ ต้อง .apply(strftime) เลย
+        df['Start_Time'] = df['Start_Time'].apply(
+            lambda x: x.strftime('%H:%M:%S') if isinstance(x, time) else str(x)
         )
+
+        # 3. 'End_Time' (ประเภท time และมีค่า NULL)
+        # ใช้วิธีเดียวกับ Start_Time แต่เช็คค่าที่เป็น NULL (NaT/None) ด้วย
+        df['End_Time'] = df['End_Time'].apply(
+            lambda x: x.strftime('%H:%M:%S') if isinstance(x, time) else np.nan
+        )
+        # -----------------------------------------------------------------
+
         df['Duration_Minutes'] = pd.to_numeric(df['Duration_Minutes'], errors='coerce')
 
         return df
@@ -70,7 +84,6 @@ def load_data():
     except Exception as e:
         st.error(f"เกิดข้อผิดพลาดในการโหลดข้อมูลจาก Supabase: {e}")
         return pd.DataFrame(columns=DB_COLUMNS)
-
 
 # -----------------------------------------------------------------
 # 💥 [MODIFIED] ฟังก์ชันสำหรับจัดการ User Data (ID ที่ไม่ซ้ำ)
@@ -595,3 +608,4 @@ def main():
 # -----------------------------------------------------------------
 if __name__ == "__main__":
     main()
+
