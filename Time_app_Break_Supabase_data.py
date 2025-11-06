@@ -563,14 +563,14 @@ def main():
     # ส่วนคอลัมน์ขวา (แสดงข้อมูล)
     # -----------------------------------------------------------------
     with main_col2:
-        st.markdown("---")
+        #st.markdown("---")
         st.subheader("ข้อมูลลงเวลา")
 
         # --- ส่วน Filter (เหมือนเดิม) ---
         col_filter1, col_filter2, col_filter3 = st.columns(3)
 
         today = datetime.now().date()
-        default_from_date = today - timedelta(days=30) 
+        default_from_date = today - timedelta(days=0) 
 
         filter_date_from = col_filter1.date_input("กรองตามวันที่ (From)", value=default_from_date, key="date_from_key")
         filter_date_to = col_filter2.date_input("กรองตามวันที่ (To)", value=today, key="date_to_key")
@@ -661,6 +661,7 @@ def main():
 # -----------------------------------------------------------------
 if __name__ == "__main__":
     main()
+
 
 
 
