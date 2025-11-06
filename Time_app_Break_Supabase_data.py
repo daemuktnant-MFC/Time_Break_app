@@ -186,8 +186,15 @@ def clock_out_latest_activity(employee_id, date_str, end_time_str):
             
             # 2. ดึง Start_Time มาคำนวณ
             start_time_df = conn.query('SELECT "Start_Time" FROM time_logs WHERE id = :id;',params=[{"id": int(log_id_to_update)}])
-            start_time = pd.to_datetime(start_time_df['Start_Time'].iloc[0]).time().strftime('%H:%M:%S')
             
+            # -----------------------------------------------------------------
+            # 💥 [FIX] แก้ไขจุดนี้: conn.query() คืนค่า object datetime.time
+            # เราจึงไม่สามารถใช้ pd.to_datetime() กับมันได้
+            # ให้เราดึง object .iloc[0] แล้ว .strftime() โดยตรง
+            start_time_obj = start_time_df['Start_Time'].iloc[0]
+            start_time = start_time_obj.strftime('%H:%M:%S')
+            # -----------------------------------------------------------------
+
             duration = calculate_duration(start_time, end_time_str)
             
             # 3. อัปเดตแถวนั้น
@@ -197,7 +204,7 @@ def clock_out_latest_activity(employee_id, date_str, end_time_str):
             WHERE id = :id;
             """
             
-            # 💥 [FIX 3/5] เปลี่ยนจาก conn.query() (ซึ่งผิด) เป็น conn.session.execute()
+            # (ส่วนนี้ถูกต้องแล้วจากครั้งก่อน)
             with conn.session as s:
                 s.execute(
                     text(sql_update),
@@ -209,6 +216,7 @@ def clock_out_latest_activity(employee_id, date_str, end_time_str):
                 )
                 s.commit()
 
+            
             st.cache_data.clear() # ล้าง cache ของ load_data
             return True
             
@@ -608,4 +616,5 @@ def main():
 # -----------------------------------------------------------------
 if __name__ == "__main__":
     main()
+
 
