@@ -5,6 +5,7 @@ import numpy as np
 import math
 from streamlit.connections import SQLConnection
 from streamlit_qrcode_scanner import qrcode_scanner
+from sqlalchemy import text # 💥 [FIX 1/5] เพิ่มการ import นี้
 
 # -----------------------------------------------------------------
 # 💥 [MODIFIED] ชื่อคอลัมน์ใน DB (id คือ PK ที่เพิ่มมา)
@@ -16,7 +17,7 @@ CUSTOM_CSS = """
 <style>
 /* 1. FIX: ลดพื้นที่ว่างด้านบนสุด */
 div.block-container {
-    padding-top: 2rem; /* ลดพื้นที่ว่างด้านบน */
+    padding-top: 3rem; /* ลดพื้นที่ว่างด้านบน */
     padding-bottom: 0rem;
 }
 /* 2. สไตล์ปุ่มและตัวอักษร (ชุดเดิม) */
@@ -98,9 +99,15 @@ def save_unique_user_id(employee_id):
 
     try:
         conn = st.connection("supabase", type=SQLConnection)
-        conn.execute('INSERT INTO user_data ("Employee_ID") VALUES (:Employee_ID) ON CONFLICT ("Employee_ID") DO NOTHING;',
-                   params=[{"Employee_ID": employee_id}]
-        )
+        
+        # 💥 [FIX 2/5] เปลี่ยนจาก conn.execute() เป็น conn.session.execute()
+        with conn.session as s:
+            s.execute(
+                text('INSERT INTO user_data ("Employee_ID") VALUES (:Employee_ID) ON CONFLICT ("Employee_ID") DO NOTHING;'),
+                params=[{"Employee_ID": employee_id}]
+            )
+            s.commit()
+            
         st.cache_data.clear() # ล้าง cache ของ load_user_data
     except Exception as e:
         st.error(f"เกิดข้อผิดพลาดในการบันทึก User ID: {e}")
@@ -165,7 +172,6 @@ def clock_out_latest_activity(employee_id, date_str, end_time_str):
             log_id_to_update = result_df['id'].iloc[0]
             
             # 2. ดึง Start_Time มาคำนวณ
-            # 💥 [FIX 3/7] เปลี่ยน params จาก [ ] เป็น ( ,)
             start_time_df = conn.query('SELECT "Start_Time" FROM time_logs WHERE id = :id;',params=[{"id": int(log_id_to_update)}])
             start_time = pd.to_datetime(start_time_df['Start_Time'].iloc[0]).time().strftime('%H:%M:%S')
             
@@ -177,13 +183,19 @@ def clock_out_latest_activity(employee_id, date_str, end_time_str):
             SET "End_Time" = :End_Time, "Duration_Minutes" = :Duration_Minutes 
             WHERE id = :id;
             """
-            conn.query(sql_update, params=[{
-                "End_Time": end_time_str,
-                "Duration_Minutes": duration,
-                "id": int(log_id_to_update)
-            }])
-
             
+            # 💥 [FIX 3/5] เปลี่ยนจาก conn.query() (ซึ่งผิด) เป็น conn.session.execute()
+            with conn.session as s:
+                s.execute(
+                    text(sql_update),
+                    params=[{
+                        "End_Time": end_time_str,
+                        "Duration_Minutes": duration,
+                        "id": int(log_id_to_update)
+                    }]
+                )
+                s.commit()
+
             st.cache_data.clear() # ล้าง cache ของ load_data
             return True
             
@@ -207,14 +219,21 @@ def log_activity_start(employee_id, date_str, start_time_str, activity_type):
         ("Employee_ID", "Date", "Start_Time", "End_Time", "Activity_Type", "Duration_Minutes") 
         VALUES (:Employee_ID, :Date, :Start_Time, :End_Time, :Activity_Type, :Duration_Minutes);
         """
-        conn.execute(sql_insert, params=[{
-            "Employee_ID": employee_id,
-            "Date": date_str,
-            "Start_Time": start_time_str,
-            "End_Time": None,
-            "Activity_Type": activity_type,
-            "Duration_Minutes": None
-        }])
+        
+        # 💥 [FIX 4/5] เปลี่ยนจาก conn.execute() เป็น conn.session.execute()
+        with conn.session as s:
+            s.execute(
+                text(sql_insert),
+                params=[{
+                    "Employee_ID": employee_id,
+                    "Date": date_str,
+                    "Start_Time": start_time_str,
+                    "End_Time": None,
+                    "Activity_Type": activity_type,
+                    "Duration_Minutes": None
+                }]
+            )
+            s.commit()
         
         # 3. บันทึก ID ผู้ใช้
         save_unique_user_id(employee_id)
@@ -230,7 +249,15 @@ def delete_log_entry(log_id):
     """ลบ Log ตาม 'id' จาก Supabase"""
     try:
         conn = st.connection("supabase", type=SQLConnection)
-        conn.execute('DELETE FROM time_logs WHERE id = :id;', params=[{"id": int(log_id)}])
+        
+        # 💥 [FIX 5/5] เปลี่ยนจาก conn.execute() เป็น conn.session.execute()
+        with conn.session as s:
+            s.execute(
+                text('DELETE FROM time_logs WHERE id = :id;'),
+                params=[{"id": int(log_id)}]
+            )
+            s.commit()
+            
         st.cache_data.clear() # ล้าง cache ของ load_data
     except Exception as e:
         st.error(f"เกิดข้อผิดพลาดในการลบ Log ID {log_id}: {e}")
@@ -568,10 +595,3 @@ def main():
 # -----------------------------------------------------------------
 if __name__ == "__main__":
     main()
-
-
-
-
-
-
-
