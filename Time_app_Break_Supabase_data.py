@@ -90,19 +90,34 @@ def load_data():
 # -----------------------------------------------------------------
 
 @st.cache_data(ttl=600)
-def load_user_data():
-    """ 💥 [MODIFIED] โหลดข้อมูล ID พนักงานที่ไม่ซ้ำจาก Supabase """
+""" 💥 [MODIFIED] โหลดข้อมูล ID และ ชื่อ พนักงานจาก Supabase """
     try:
         conn = st.connection("supabase", type=SQLConnection)
-        df_users = conn.query('SELECT "Employee_ID" FROM user_data;', ttl=60)
+        
+        # 💥 [FIX] เลือก "Employee_Name" มาด้วย (ต้องสร้างคอลัมน์นี้ใน Supabase ก่อน)
+        sql_query = 'SELECT "Employee_ID", "Employee_Name" FROM user_data;'
+        df_users = conn.query(sql_query, ttl=60)
         
         if df_users.empty:
-            return []
+            # 💥 [FIX] คืนค่าเป็น DataFrame ที่มี 2 คอลัมน์
+            return pd.DataFrame(columns=["Employee_ID", "Employee_Name"])
             
-        return df_users['Employee_ID'].dropna().astype(str).unique().tolist()
+        df_users['Employee_ID'] = df_users['Employee_ID'].astype(str)
+        # 💥 [FIX] เติมค่าว่างสำหรับคนที่ยังไม่ได้กรอกชื่อ
+        df_users['Employee_Name'] = df_users['Employee_Name'].astype(str).fillna("N/A") 
+        
+        return df_users.drop_duplicates(subset=['Employee_ID']) # กัน ID ซ้ำ
+
     except Exception as e:
-        st.warning(f"ไม่สามารถโหลด User ID List: {e}")
-        return []
+        # 💥 [FIX] ตรวจสอบว่า Error เกิดเพราะไม่มีคอลัมน์ Employee_Name หรือไม่
+        if 'column "Employee_Name" does not exist' in str(e):
+             st.error("⚠️ [Error] ไม่พบคอลัมน์ 'Employee_Name' ในตาราง 'user_data'!")
+             st.info("กรุณาเพิ่มคอลัมน์ 'Employee_Name' (type: text) ใน Supabase ก่อนครับ")
+        else:
+            st.warning(f"ไม่สามารถโหลด User List (ID/Name): {e}")
+        
+        # 💥 [FIX] คืนค่าเป็น DataFrame ว่าง
+        return pd.DataFrame(columns=["Employee_ID", "Employee_Name"])
 
 def save_unique_user_id(employee_id):
     """ 💥 [MODIFIED] บันทึก ID พนักงานใหม่ที่ไม่ซ้ำลงใน Supabase """
@@ -402,8 +417,27 @@ def main():
         st.session_state["selectbox_chooser"] = "ค้นหา ID"
 
     # --- 3.2 โหลดข้อมูล ---
-    df = load_data() # 💥 โหลดจาก Supabase
-    existing_ids = sorted(load_user_data()) # 💥 โหลดจาก Supabase
+    df = load_data() # 💥 โหลด time_logs
+    
+    # 💥 [FIX] โหลด df_users (ที่มี ID และ Name)
+    df_users = load_user_data() 
+    
+    # 💥 [FIX] สร้าง list ของ ID จาก df_users
+    existing_ids = sorted(df_users['Employee_ID'].unique().tolist()) 
+
+    # 💥 [FIX] Merge ข้อมูลชื่อพนักงาน (df_users) เข้ากับข้อมูลลงเวลา (df)
+    if not df.empty and not df_users.empty:
+        df = pd.merge(
+            df, 
+            df_users, 
+            on="Employee_ID", 
+            how="left" # ใช้ "left" เพื่อให้ log ยังแสดงแม้จะหาชื่อไม่พบ
+        )
+        # เติมค่าว่างสำหรับชื่อที่หาไม่เจอ (กรณี ID อยู่ใน time_logs แต่ไม่อยู่ใน user_data)
+        df['Employee_Name'] = df['Employee_Name'].fillna("N/A")
+    elif not df.empty:
+        # ถ้า df_users ว่างเปล่า (โหลดไม่สำเร็จ) ให้สร้างคอลัมน์ชื่อว่างไว้
+        df['Employee_Name'] = "N/A"
 
 
     # -----------------------------------------------------------------
@@ -412,12 +446,10 @@ def main():
 
     with main_col1:
         st.title("ระบบบันทึกเวลา")
-        # 💥 [REMOVED] ลบ Path ที่แสดงออก
-        # st.markdown(f"**บันทึกข้อมูลที่:** `{LOGS_DIR}`") 
         st.success("💾 เชื่อมต่อฐานข้อมูล Supabase สำเร็จ")
 
         
-        # ... (ส่วน Message, Selectbox, Text Input, Form, QR Code เหมือนเดิมทุกประการ) ...
+        # ... (ส่วน Message, Selectbox, Text Input, Form, QR Code เหมือนเดิม) ...
         
         # -----------------------------------------------------------------
         # แสดง Message
@@ -477,9 +509,18 @@ def main():
         with st.form("activity_form", clear_on_submit=False): 
             
             if emp_id_input:
-                st.info(f"ID ที่ใช้บันทึก: **{emp_id_input}**")
+                # 💥 [FIX] แสดงชื่อพนักงาน (ถ้ามี)
+                emp_name = "N/A"
+                if not df_users.empty and emp_id_input in df_users['Employee_ID'].values:
+                    emp_name = df_users[df_users['Employee_ID'] == emp_id_input]['Employee_Name'].iloc[0]
+
+                if emp_name != "N/A":
+                    st.info(f"ID: **{emp_id_input}** (คุณ: **{emp_name}**)")
+                else:
+                     st.info(f"ID ที่ใช้บันทึก: **{emp_id_input}**")
             else:
                 st.info("กรุณาสแกน, เลือก หรือกรอก Employee ID ก่อนทำกิจกรรม")
+
 
             st.write("เลือกกิจกรรม:")
             
@@ -520,14 +561,14 @@ def main():
     # ส่วนคอลัมน์ขวา (แสดงข้อมูล)
     # -----------------------------------------------------------------
     with main_col2:
-        #st.markdown("---")
+        st.markdown("---")
         st.subheader("ข้อมูลลงเวลา")
 
         # --- ส่วน Filter (เหมือนเดิม) ---
         col_filter1, col_filter2, col_filter3 = st.columns(3)
 
         today = datetime.now().date()
-        default_from_date = today - timedelta(days=0) 
+        default_from_date = today - timedelta(days=30) 
 
         filter_date_from = col_filter1.date_input("กรองตามวันที่ (From)", value=default_from_date, key="date_from_key")
         filter_date_to = col_filter2.date_input("กรองตามวันที่ (To)", value=today, key="date_to_key")
@@ -540,9 +581,7 @@ def main():
         if df.empty:
             st.info("ยังไม่มีข้อมูลการลงเวลา")
         else:
-            # 💥 [MODIFIED] การกรอง DataFrame
-            # DataFrame (df) ที่โหลดมาเป็น str หมดแล้ว (จาก load_data)
-            # เราต้องแปลงกลับเป็น object เพื่อเปรียบเทียบ
+            # การกรอง (เหมือนเดิม)
             display_df = df.copy()
             display_df['Date_Obj'] = pd.to_datetime(display_df['Date']).dt.date
 
@@ -562,51 +601,55 @@ def main():
             if display_df.empty:
                 st.info("ไม่พบข้อมูลการลงเวลาตามตัวกรองที่เลือก")
             else:
-                # 💥 [MODIFIED] ไม่ต้อง sort ซ้ำ (load_data sort มาแล้ว)
                 display_df = display_df.drop(columns=['Date_Obj'], errors='ignore')
-                # display_df = display_df.sort_values(by=['Date', 'Start_Time'], ascending=[False, False])
                 display_df = display_df.reset_index(drop=True) 
 
-                col_ratios = [0.5, 1, 1, 1.2, 1, 1, 1.3]
+                # 💥 [FIX] เพิ่มคอลัมน์ "ชื่อ-สกุล" และปรับสัดส่วน
+                col_ratios = [0.5, 1, 1.5, 1, 1.2, 1, 1, 1.3] 
                 cols = st.columns(col_ratios)
-                headers = ["ลบ", "Employee ID", "Date", "ประเภทกิจกรรม", "เวลาเริ่ม", "เวลาสิ้นสุด", "**ระยะเวลา**"]
+                headers = ["ลบ", "Employee ID", "ชื่อ-สกุล", "Date", "ประเภทกิจกรรม", "เวลาเริ่ม", "เวลาสิ้นสุด", "**ระยะเวลา**"]
+                
                 for col, header in zip(cols, headers):
                     col.markdown(f"**{header}**")
                 
                 st.markdown('<hr style="margin: 0px 0px 0px 0px;">', unsafe_allow_html=True) 
 
                 for index, row in display_df.iterrows(): 
-                    # 💥 [MODIFIED] ใช้ 'id' จากฐานข้อมูล
                     log_id = row['id'] 
-                    cols = st.columns(col_ratios)
+                    cols = st.columns(col_ratios) # 💥 [FIX] ใช้ col_ratios ใหม่
                     time_style = "class='time-display'"
                     
-                    # 💥 [MODIFIED] ส่ง log_id ไปให้ฟังก์ชันลบ
                     if cols[0].button("❌", key=f"del_{log_id}_{index}", on_click=delete_log_entry, args=(log_id,), help="ลบ Log ลงเวลานี้"):
                          st.rerun()
                          
                     cols[1].write(row['Employee_ID'])
-                    cols[2].write(row['Date'])
-                    cols[3].write(row['Activity_Type'])
-                    cols[4].markdown(f"<p {time_style}>{format_time_display(row['Start_Time'])}</p>", unsafe_allow_html=True)
+                    
+                    # 💥 [FIX] แสดงชื่อ (cols[2])
+                    cols[2].write(row.get('Employee_Name', 'N/A')) 
+                    
+                    # 💥 [FIX] เลื่อนคอลัมน์ที่เหลือ
+                    cols[3].write(row['Date'])
+                    cols[4].write(row['Activity_Type'])
+                    cols[5].markdown(f"<p {time_style}>{format_time_display(row['Start_Time'])}</p>", unsafe_allow_html=True)
                     end_time_display = format_time_display(row['End_Time'])
-                    cols[5].markdown(f"<p {time_style}>{end_time_display}</p>", unsafe_allow_html=True)
+                    cols[6].markdown(f"<p {time_style}>{end_time_display}</p>", unsafe_allow_html=True)
                     duration_display = format_duration(row['Duration_Minutes'])
-                    cols[6].markdown(f"<p {time_style}>{duration_display}</p>", unsafe_allow_html=True)
+                    cols[7].markdown(f"<p {time_style}>{duration_display}</p>", unsafe_allow_html=True)
         
         # -----------------------------------------------------------------
         # ส่วนสร้างปุ่มดาวน์โหลดไฟล์
         # -----------------------------------------------------------------
         st.subheader("ดาวน์โหลดข้อมูล")
 
-        # 💥 [MODIFIED] ส่ง DataFrame (df) ทั้งหมด (ที่ยังไม่กรอง) ไปสร้าง CSV
+        # 💥 [FIX] ตอนนี้ df ที่ดาวน์โหลดจะมีคอลัมน์ 'Employee_Name' 
+        # (จากขั้นตอน Merge ด้านบน) ซึ่งถูกต้องแล้ว
         csv_data = get_csv_content_with_bom(df) 
 
         if csv_data:
             st.download_button(
                 label="Download Log File (.csv)",
                 data=csv_data,
-                file_name=f"time_logs_{datetime.now().strftime('%Y%m%d')}.csv", # ตั้งชื่อไฟล์ใหม่
+                file_name=f"time_logs_{datetime.now().strftime('%Y%m%d')}.csv", 
                 mime="text/csv",
                 key="download_button_key"
             )
@@ -616,6 +659,7 @@ def main():
 # -----------------------------------------------------------------
 if __name__ == "__main__":
     main()
+
 
 
 
