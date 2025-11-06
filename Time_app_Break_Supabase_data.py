@@ -429,7 +429,7 @@ def submit_activity(activity_type):
 
 
 # -----------------------------------------------------------------
-# 💥 [MODIFIED] ฟังก์ชัน MAIN
+# 💥 [MODIFIED] ฟังก์ชัน MAIN (ปรับ Layout)
 # -----------------------------------------------------------------
 def main():
     # --- 3. ส่วนหน้าเว็บ (UI) ---
@@ -437,7 +437,7 @@ def main():
     
     st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
-    # Initialize Session State (เหมือนเดิม)
+    # (Initialize Session State - เหมือนเดิม)
     if "current_emp_id" not in st.session_state:
         st.session_state["current_emp_id"] = ""
     if "manual_emp_id_input_outside_form" not in st.session_state: 
@@ -448,29 +448,18 @@ def main():
         st.session_state["selectbox_chooser"] = "ค้นหา ID"
 
     # --- 3.2 โหลดข้อมูล ---
-    df = load_data() # 💥 โหลด time_logs
-    
-    # 💥 [FIX] โหลด df_users (ที่มี ID, Name, Surname)
+    df = load_data() 
     df_users = load_user_data() 
-    
     existing_ids = sorted(df_users['Employee_ID'].unique().tolist()) 
 
-    # 💥 [FIX] Merge ข้อมูลชื่อ/นามสกุลพนักงาน เข้ากับข้อมูลลงเวลา
+    # (Merge ข้อมูล - เหมือนเดิม)
     if not df.empty and not df_users.empty:
-        df = pd.merge(
-            df, 
-            df_users, 
-            on="Employee_ID", 
-            how="left" # ใช้ "left" เพื่อให้ log ยังแสดงแม้จะหาชื่อไม่พบ
-        )
-        # เติมค่าว่างสำหรับชื่อที่หาไม่เจอ
+        df = pd.merge(df, df_users, on="Employee_ID", how="left")
         df['Employee_Name'] = df['Employee_Name'].fillna("")
         df['Employee_Surname'] = df['Employee_Surname'].fillna("")
     elif not df.empty:
-        # ถ้า df_users ว่างเปล่า (โหลดไม่สำเร็จ) ให้สร้างคอลัมน์ชื่อว่างไว้
         df['Employee_Name'] = ""
         df['Employee_Surname'] = ""
-
 
     # -----------------------------------------------------------------
     # --- Layout หลัก ---
@@ -495,6 +484,7 @@ def main():
         
         # -----------------------------------------------------------------
         # 1. Selectbox (ตัวเลือกเสริม)
+        # (โค้ดส่วนนี้เหมือนเดิม)
         options = ["ค้นหา ID"] + existing_ids 
         
         def sync_from_selectbox():
@@ -533,21 +523,17 @@ def main():
         
         # -----------------------------------------------------------------
         # 3. ส่วน Form/ปุ่มกิจกรรม
+        # (โค้ดส่วนนี้เหมือนเดิม)
         # -----------------------------------------------------------------
-        
         with st.form("activity_form", clear_on_submit=False): 
-            
             if emp_id_input:
-                # 💥 [FIX] แสดงชื่อ-นามสกุลเต็ม
                 emp_name = ""
                 emp_surname = ""
                 if not df_users.empty and emp_id_input in df_users['Employee_ID'].values:
                     details = df_users[df_users['Employee_ID'] == emp_id_input].iloc[0]
                     emp_name = details.get('Employee_Name', '')
                     emp_surname = details.get('Employee_Surname', '')
-                
                 full_name = f"{emp_name} {emp_surname}".strip()
-
                 if full_name:
                     st.info(f"ID: **{emp_id_input}** (คุณ: **{full_name}**)")
                 else:
@@ -555,24 +541,19 @@ def main():
             else:
                 st.info("กรุณาสแกน, เลือก หรือกรอก Employee ID ก่อนทำกิจกรรม")
 
-
             st.write("เลือกกิจกรรม:")
             (activity_buttons_col1, activity_buttons_col2, 
              activity_buttons_col3, activity_buttons_col4) = st.columns(4)
-
             is_disabled = not bool(emp_id_input) 
             
-            submitted_Break = activity_buttons_col1.form_submit_button("เริ่มพักเบรค", type="primary", use_container_width=True, disabled=is_disabled,
-                                                                    on_click=submit_activity, args=("Break",))
-            submitted_smoking = activity_buttons_col2.form_submit_button("สูบบุหรี่", use_container_width=True, disabled=is_disabled,
-                                                                       on_click=submit_activity, args=("Smoking",))
-            submitted_toilet = activity_buttons_col3.form_submit_button("เข้าห้องน้ำ", use_container_width=True, disabled=is_disabled,
-                                                                      on_click=submit_activity, args=("Toilet",))
-            submitted_end_activity = activity_buttons_col4.form_submit_button("สิ้นสุดกิจกรรม", type="secondary", use_container_width=True, disabled=is_disabled,
-                                                                           on_click=submit_activity, args=("End_Activity",))
+            submitted_Break = activity_buttons_col1.form_submit_button("เริ่มพักเบรค", type="primary", use_container_width=True, disabled=is_disabled, on_click=submit_activity, args=("Break",))
+            submitted_smoking = activity_buttons_col2.form_submit_button("สูบบุหรี่", use_container_width=True, disabled=is_disabled, on_click=submit_activity, args=("Smoking",))
+            submitted_toilet = activity_buttons_col3.form_submit_button("เข้าห้องน้ำ", use_container_width=True, disabled=is_disabled, on_click=submit_activity, args=("Toilet",))
+            submitted_end_activity = activity_buttons_col4.form_submit_button("สิ้นสุดกิจกรรม", type="secondary", use_container_width=True, disabled=is_disabled, on_click=submit_activity, args=("End_Activity",))
 
         # -----------------------------------------------------------------
         # 4. กล้องสแกน QR Code
+        # (โค้ดส่วนนี้เหมือนเดิม)
         # -----------------------------------------------------------------
         st.write("---") 
         st.write("หรือ สแกน QR/Barcode:")
@@ -587,53 +568,11 @@ def main():
                 st.session_state["selectbox_chooser"] = scanned_id
             else:
                 st.session_state["selectbox_chooser"] = "ค้นหา ID"
-            
             st.rerun()
 
         # -----------------------------------------------------------------
-        # 💥 [NEW] 5. เพิ่มส่วนแก้ไขข้อมูลพนักงาน (Admin)
+        # 💥 [FIX] ย้ายส่วน Admin ไปไว้ Col 2 แล้ว
         # -----------------------------------------------------------------
-        st.write("---")
-        with st.expander("📝 (Admin) แก้ไขข้อมูลพนักงาน"):
-            if df_users.empty:
-                st.warning("ไม่สามารถโหลดข้อมูลพนักงานเพื่อแก้ไข")
-            else:
-                all_ids_list = df_users['Employee_ID'].tolist()
-                
-                selected_id_to_edit = st.selectbox(
-                    "เลือก ID พนักงานที่จะแก้ไข:",
-                    options=all_ids_list,
-                    key="selectbox_edit_id"
-                )
-                
-                if selected_id_to_edit:
-                    # ดึงข้อมูลปัจจุบัน
-                    current_details = df_users[df_users['Employee_ID'] == selected_id_to_edit].iloc[0]
-                    
-                    # ใช้ Form เพื่อการ submit ที่ดีกว่า
-                    with st.form("edit_employee_form", clear_on_submit=False):
-                        st.info(f"กำลังแก้ไข ID: {selected_id_to_edit}")
-                        
-                        # ช่องกรอกข้อมูล โดยดึงค่าปัจจุบันมาแสดง
-                        new_name = st.text_input(
-                            "ชื่อ (Name):", 
-                            value=current_details.get('Employee_Name', '')
-                        )
-                        new_surname = st.text_input(
-                            "นามสกุล (Surname):", 
-                            value=current_details.get('Employee_Surname', '')
-                        )
-                        
-                        submitted_edit = st.form_submit_button("บันทึกการเปลี่ยนแปลง")
-                        
-                        if submitted_edit:
-                            # เรียกใช้ฟังก์ชันอัปเดต
-                            if update_employee_details(selected_id_to_edit, new_name, new_surname):
-                                st.rerun() # Rerun เพื่อแสดงผลข้อมูลใหม่
-                            else:
-                                st.error("ไม่สามารถบันทึกได้ กรุณาลองอีกครั้ง")
-                else:
-                    st.info("ไม่มีข้อมูลพนักงานในระบบ")
 
 
     # -----------------------------------------------------------------
@@ -645,25 +584,21 @@ def main():
 
         # --- ส่วน Filter (เหมือนเดิม) ---
         col_filter1, col_filter2, col_filter3 = st.columns(3)
-
         today = datetime.now().date()
         default_from_date = today - timedelta(days=30) 
-
         filter_date_from = col_filter1.date_input("กรองตามวันที่ (From)", value=default_from_date, key="date_from_key")
         filter_date_to = col_filter2.date_input("กรองตามวันที่ (To)", value=today, key="date_to_key")
-
         unique_ids = ["All"] + existing_ids 
         filter_id = col_filter3.selectbox("กรองตาม Employee ID", options=unique_ids, key="id_filter_key")
 
 
-        # --- สร้างตารางแสดงผล ---
+        # --- สร้างตารางแสดงผล (เหมือนเดิม) ---
         if df.empty:
             st.info("ยังไม่มีข้อมูลการลงเวลา")
         else:
-            # การกรอง (เหมือนเดิม)
+            # (โค้ดกรอง display_df - เหมือนเดิม)
             display_df = df.copy()
             display_df['Date_Obj'] = pd.to_datetime(display_df['Date']).dt.date
-
             if filter_date_from and filter_date_to:
                 if filter_date_from <= filter_date_to:
                     display_df = display_df[
@@ -673,43 +608,33 @@ def main():
                 else:
                     st.error("วันที่ From ต้องไม่เกินวันที่ To กรุณาแก้ไข")
                     st.stop() 
-
             if filter_id != "All":
                 display_df = display_df[display_df['Employee_ID'] == filter_id]
 
             if display_df.empty:
                 st.info("ไม่พบข้อมูลการลงเวลาตามตัวกรองที่เลือก")
             else:
+                # (โค้ดแสดงตาราง - เหมือนเดิม)
                 display_df = display_df.drop(columns=['Date_Obj'], errors='ignore')
                 display_df = display_df.reset_index(drop=True) 
-
-                # (สัดส่วนคอลัมน์เหมือนเดิม)
                 col_ratios = [0.5, 1, 1.5, 1, 1.2, 1, 1, 1.3] 
                 cols = st.columns(col_ratios)
                 headers = ["ลบ", "Employee ID", "ชื่อ-สกุล", "Date", "ประเภทกิจกรรม", "เวลาเริ่ม", "เวลาสิ้นสุด", "**ระยะเวลา**"]
-                
                 for col, header in zip(cols, headers):
                     col.markdown(f"**{header}**")
-                
                 st.markdown('<hr style="margin: 0px 0px 0px 0px;">', unsafe_allow_html=True) 
 
                 for index, row in display_df.iterrows(): 
                     log_id = row['id'] 
                     cols = st.columns(col_ratios)
                     time_style = "class='time-display'"
-                    
                     if cols[0].button("❌", key=f"del_{log_id}_{index}", on_click=delete_log_entry, args=(log_id,), help="ลบ Log ลงเวลานี้"):
                          st.rerun()
-                         
                     cols[1].write(row['Employee_ID'])
-                    
-                    # 💥 [FIX] แสดงชื่อ-นามสกุลเต็ม
                     emp_name = row.get('Employee_Name', '')
                     emp_surname = row.get('Employee_Surname', '')
                     full_name = f"{emp_name} {emp_surname}".strip()
                     cols[2].write(full_name if full_name else "N/A") 
-                    
-                    # (คอลัมน์ที่เหลือเหมือนเดิม)
                     cols[3].write(row['Date'])
                     cols[4].write(row['Activity_Type'])
                     cols[5].markdown(f"<p {time_style}>{format_time_display(row['Start_Time'])}</p>", unsafe_allow_html=True)
@@ -719,24 +644,70 @@ def main():
                     cols[7].markdown(f"<p {time_style}>{duration_display}</p>", unsafe_allow_html=True)
         
         # -----------------------------------------------------------------
+        # 💥 [FIX] จัด Layout ใหม่ตามที่ขอ
+        # -----------------------------------------------------------------
+        st.markdown("---") # เพิ่มเส้นคั่นใต้ตาราง
+        
+        # สร้าง 2 คอลัมน์
+        admin_col, download_col = st.columns(2) 
+
+        # -----------------------------------------------------------------
+        # 💥 [NEW] 5. (ย้ายมานี่) ส่วนแก้ไขข้อมูลพนักงาน (Admin)
+        # -----------------------------------------------------------------
+        with admin_col: # ใส่ในคอลัมน์ซ้าย
+            with st.expander("📝 (Admin) แก้ไขข้อมูลพนักงาน"):
+                if df_users.empty:
+                    st.warning("ไม่สามารถโหลดข้อมูลพนักงานเพื่อแก้ไข")
+                else:
+                    all_ids_list = df_users['Employee_ID'].tolist()
+                    
+                    selected_id_to_edit = st.selectbox(
+                        "เลือก ID พนักงานที่จะแก้ไข:",
+                        options=all_ids_list,
+                        key="selectbox_edit_id"
+                    )
+                    
+                    if selected_id_to_edit:
+                        current_details = df_users[df_users['Employee_ID'] == selected_id_to_edit].iloc[0]
+                        
+                        with st.form("edit_employee_form", clear_on_submit=False):
+                            st.info(f"กำลังแก้ไข ID: {selected_id_to_edit}")
+                            new_name = st.text_input(
+                                "ชื่อ (Name):", 
+                                value=current_details.get('Employee_Name', '')
+                            )
+                            new_surname = st.text_input(
+                                "นามสกุล (Surname):", 
+                                value=current_details.get('Employee_Surname', '')
+                            )
+                            submitted_edit = st.form_submit_button("บันทึกการเปลี่ยนแปลง")
+                            
+                            if submitted_edit:
+                                if update_employee_details(selected_id_to_edit, new_name, new_surname):
+                                    st.rerun() 
+                                else:
+                                    st.error("ไม่สามารถบันทึกได้ กรุณาลองอีกครั้ง")
+                    else:
+                        st.info("ไม่มีข้อมูลพนักงานในระบบ")
+
+        # -----------------------------------------------------------------
         # ส่วนสร้างปุ่มดาวน์โหลดไฟล์
         # -----------------------------------------------------------------
-        st.subheader("ดาวน์โหลดข้อมูล")
-
-        # 💥 [FIX] ตอนนี้ df ที่ดาวน์โหลดจะมีคอลัมน์ 'Employee_Name' และ 'Employee_Surname'
-        csv_data = get_csv_content_with_bom(df) 
-
-        if csv_data:
-            st.download_button(
-                label="Download Log File (.csv)",
-                data=csv_data,
-                file_name=f"time_logs_{datetime.now().strftime('%Y%m%d')}.csv", 
-                mime="text/csv",
-                key="download_button_key"
-            )
+        with download_col: # ใส่ในคอลัมน์ขวา
+            st.subheader("ดาวน์โหลดข้อมูล")
+            csv_data = get_csv_content_with_bom(df) 
+            if csv_data:
+                st.download_button(
+                    label="Download Log File (.csv)",
+                    data=csv_data,
+                    file_name=f"time_logs_{datetime.now().strftime('%Y%m%d')}.csv", 
+                    mime="text/csv",
+                    key="download_button_key"
+                )
 
 # -----------------------------------------------------------------
 # 💥 การเรียกใช้งานฟังก์ชันหลัก
 # -----------------------------------------------------------------
 if __name__ == "__main__":
     main()
+
